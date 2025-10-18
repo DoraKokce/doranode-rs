@@ -126,6 +126,47 @@ impl From<RoundedRectangle> for raylib::prelude::Rectangle {
     }
 }
 
+/* CIRCLE */
+#[derive(Debug, Clone)]
+pub struct Circle {
+    pub position: Vector2,
+    pub radius: f32,
+    pub background_color: Color,
+    pub border_thickness: Option<u32>,
+    pub border_color: Option<Color>,
+    pub z: i32,
+}
+
+impl Object for Circle {
+    fn z_index(&self) -> i32 {
+        self.z
+    }
+
+    fn position(&self) -> Vector2 {
+        self.position.clone()
+    }
+
+    fn draw(&self, draw_handle: &mut RaylibDrawHandle) {
+        draw_handle.draw_circle(
+            self.position.x,
+            self.position.y,
+            self.radius,
+            self.background_color,
+        );
+
+        if let (Some(thickness), Some(border_color)) = (self.border_thickness, self.border_color) {
+            for i in 0..thickness {
+                draw_handle.draw_circle_lines(
+                    self.position.x,
+                    self.position.y,
+                    self.radius + i as f32,
+                    border_color,
+                );
+            }
+        }
+    }
+}
+
 /* GRID */
 #[derive(Debug, Clone)]
 pub struct Grid {
