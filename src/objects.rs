@@ -5,7 +5,7 @@ use crate::structs::Vector2;
 pub trait Object {
     fn z_index(&self) -> i32;
     fn position(&self) -> Vector2;
-    fn draw(&self, d: &mut RaylibDrawHandle);
+    fn draw(&self, draw_handle: &mut RaylibDrawHandle);
 }
 
 /* RECTANGLE */
@@ -265,6 +265,41 @@ impl Object for Text {
             1.0,
             self.foreground_color,
         );
+    }
+}
+
+/* IMAGE */
+#[derive(Debug)]
+pub struct Image {
+    pub position: Vector2,
+    pub path: String,
+    pub texture: Option<Texture2D>,
+    pub z: i32,
+}
+
+impl Image {
+    pub fn load(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread) {
+        if let Ok(tex) = rl.load_texture(thread, &self.path) {
+            self.texture = Some(tex);
+        } else {
+            eprintln!("[-] Resim {} yüklenemedi", self.path);
+        }
+    }
+}
+
+impl Object for Image {
+    fn z_index(&self) -> i32 {
+        self.z
+    }
+
+    fn position(&self) -> Vector2 {
+        self.position.clone()
+    }
+
+    fn draw(&self, draw_handle: &mut RaylibDrawHandle) {
+        if let Some(tex) = &self.texture {
+            draw_handle.draw_texture(tex, 100, 100, Color::WHITE);
+        }
     }
 }
 
