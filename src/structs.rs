@@ -1,4 +1,4 @@
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Div, Mul, Sub};
 
 #[derive(Debug, Clone)]
 pub struct Vector2 {
@@ -90,6 +90,15 @@ impl Mul for Vector2 {
     }
 }
 
+impl Div<i32> for Vector2 {
+    type Output = Vector2;
+
+    fn div(self, rhs: i32) -> Self::Output {
+        let from = self.from_origin();
+        Vector2::new(from.x / rhs, from.y / rhs, None)
+    }
+}
+
 impl From<&Vector2> for raylib::prelude::Vector2 {
     fn from(v: &Vector2) -> Self {
         raylib::prelude::Vector2 {
@@ -112,7 +121,7 @@ impl From<Vector2> for raylib::ffi::Vector2 {
     fn from(v: Vector2) -> Self {
         raylib::ffi::Vector2 {
             x: v.x as f32,
-            y: v.y as f32,
+            y: -v.y as f32,
         }
     }
 }
