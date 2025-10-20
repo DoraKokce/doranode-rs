@@ -340,8 +340,6 @@ impl Object for TextBox {
         let screen_position = draw_handle
             .get_world_to_screen2D(self.position.clone(), Camera2D::from(camera.clone()));
 
-        println!("cursor: {}", self.cursor_blink);
-        // calculate pixel offset for current scroll_offset (width of skipped text)
         let scroll_prefix: String = self.text.chars().take(self.scroll_offset).collect();
         let scroll_px = self
             .font
@@ -354,7 +352,6 @@ impl Object for TextBox {
             self.size.x - 16,
             self.size.y - 8,
             |mut scissor| {
-                // shift the text left by scroll_px so scissor shows the correct window
                 let draw_pos = self.position.clone() + Vector2::new(8 - scroll_px, -4, None);
                 scissor.draw_text_ex(
                     &self.font,
@@ -366,14 +363,12 @@ impl Object for TextBox {
                 );
 
                 if self.cursor_blink {
-                    // full cursor position (in pixels) from start of text
                     let cursor_full: String = self.text.chars().take(self.cursor_index).collect();
                     let cursor_full_px = self
                         .font
                         .measure_text(&cursor_full, self.font_size as f32, 1.0)
                         .x as i32;
 
-                    // subtract scroll_px to get cursor position inside visible window
                     let cursor_pos_x = cursor_full_px - scroll_px;
 
                     scissor.draw_rectangle(
@@ -536,6 +531,98 @@ impl From<&TextBox> for Rectangle {
             position: value.position.clone(),
             size: value.size.clone(),
             z: value.z,
+        }
+    }
+}
+
+/* SLIDER */
+#[derive(Debug)]
+pub struct Slider<T: AsF32 + From<f32>> {
+    pub position: Vector2,
+    pub size: Vector2,
+    pub min_value: T,
+    pub max_value: T,
+    pub current_value: T,
+    pub background_color: Option<Color>,
+    pub foreground_color: Option<Color>,
+    pub handle_color: Color,
+    pub handle_size: Option<Vector2>,
+    pub step: Option<T>,
+    pub z: i32,
+}
+
+impl<T: AsF32 + From<f32>> Object for Slider<T> {
+    fn z_index(&self) -> i32 {
+        self.z
+    }
+
+    fn position(&self) -> Vector2 {
+        self.position.clone()
+    }
+
+    fn draw(&self, draw_handle: &mut RaylibDrawHandle, _: &Camera) {
+        if let Some(bg_color) = self.background_color {
+            draw_handle.draw_rectangle(
+                self.position.x,
+                self.position.y,
+                self.size.x,
+                self.size.y,
+                bg_color,
+            );
+        }
+
+        let filled_width = ((self.current_value.as_f32() - self.min_value.as_f32())
+            / (self.max_value.as_f32() - self.min_value.as_f32()))
+            * self.size.x as f32;
+
+        if let Some(fg_color) = self.foreground_color {
+            draw_handle.draw_rectangle(
+                self.position.x,
+                self.position.y,
+                filled_width as i32,
+                self.size.y,
+                fg_color,
+            );
+        }
+
+        let handle_x = self.position.x + filled_width as i32;
+        draw_handle.draw_circle(
+            handle_x,
+            self.position.y + self.size.y / 2,
+            10.0,
+            self.handle_color,
+        );
+    }
+
+    fn update(&mut self, rl: &mut RaylibHandle, _thread: &RaylibThread, camera: &Camera) {
+        let mouse_pos = rl.get_screen_to_world2D(rl.get_mouse_position(), Camera2D::from(camera));
+
+        if rl.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT) {
+            let px = mouse_pos.x;
+            let py = mouse_pos.y;
+
+            let x0 = self.position.x as f32;
+            let y0 = self.position.y as f32;
+            let x1 = x0 + self.size.x as f32;
+            let y1 = y0 + self.size.y as f32;
+
+            if px >= x0 && px <= x1 && py >= y0 && py <= y1 {
+                let relative = (px - x0).clamp(0.0, self.size.x as f32);
+                let ratio = relative / (self.size.x as f32).max(f32::EPSILON);
+                let mut val = self.min_value.as_f32()
+                    + ratio * (self.max_value.as_f32() - self.min_value.as_f32());
+
+                if val < self.min_value.as_f32() {
+                    val = self.min_value.as_f32();
+                } else if val > self.max_value.as_f32() {
+                    val = self.max_value.as_f32();
+                }
+
+                val = val.round() / self.step.unwrap_or(1.0.into()).as_f32()
+                    * self.step.unwrap_or(1.0.into()).as_f32();
+
+                self.current_value = val.into();
+            }
         }
     }
 }

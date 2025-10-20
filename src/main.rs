@@ -1,5 +1,5 @@
 use crate::{
-    objects::{Camera, Grid, Object, Rectangle, RoundedRectangle, Text, TextBox},
+    objects::{Camera, Grid, Object, Rectangle, RoundedRectangle, Slider, Text, TextBox},
     structs::Vector2,
 };
 use raylib::prelude::*;
@@ -34,25 +34,28 @@ fn main() {
         zoom: 1.0,
     };
 
-    let mut text = TextBox {
-        active: false,
-        active_background_color: Color::WHEAT,
-        background_color: Color::WHITE,
-        border_color: Some(Color::BLACK),
-        position: Vector2::zero(),
-        border_thickness: Some(3),
-        cursor_index: 0,
-        foreground_color: Color::BLACK,
-        size: Vector2::new(150, 50, None),
-        text: String::new(),
-        font_size: 0,
-        font: roboto_font,
-        scroll_offset: 0,
-        cursor_blink: false,
+    let mut slider: Slider<f32> = Slider {
+        background_color: Some(Color::LIGHTGRAY),
+        current_value: 0.0,
+        foreground_color: None,
+        handle_color: Color::DARKGRAY,
+        max_value: 5.0,
+        min_value: 0.0,
+        position: Vector2::new(0, 100, None),
+        size: Vector2::new(200, 20, None),
+        handle_size: None,
+        step: Some(1.0),
         z: 1,
     };
 
-    text.text = "sa".to_string();
+    let mut text: Text = Text {
+        font: roboto_font,
+        font_size: 32.0,
+        foreground_color: Color::BLACK,
+        text: String::new(),
+        position: Vector2::new(0, -200, None),
+        z: 2,
+    };
 
     while !rl_handle.window_should_close() {
         if rl_handle.is_window_resized() {
@@ -62,13 +65,15 @@ fn main() {
                 None,
             );
         }
+        slider.update(&mut rl_handle, &thread, &camera);
         text.update(&mut rl_handle, &thread, &camera);
-        println!("{}:{}", text.active, text.text);
+        text.text = format!("Slider Value: {:.2}", slider.current_value);
         let mut draw_handle = rl_handle.begin_drawing(&thread);
         draw_handle.clear_background(Color::WHITE);
 
         {
             let mut mode_camera = draw_handle.begin_mode2D(Camera2D::from(camera.clone()));
+            slider.draw(&mut mode_camera, &camera);
             text.draw(&mut mode_camera, &camera);
         }
     }

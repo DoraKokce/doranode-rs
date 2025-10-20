@@ -121,7 +121,7 @@ impl From<Vector2> for raylib::ffi::Vector2 {
     fn from(v: Vector2) -> Self {
         raylib::ffi::Vector2 {
             x: v.x as f32,
-            y: -v.y as f32,
+            y: v.y as f32,
         }
     }
 }
