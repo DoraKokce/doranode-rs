@@ -338,6 +338,9 @@ pub struct TextBox {
     pub font: Font,
     pub scroll_offset: usize,
     pub cursor_blink: bool,
+    pub is_editable: bool,
+    pub scalable: bool,
+    pub min_size: Option<Vector2>,
     pub z: i32,
 }
 
@@ -368,7 +371,7 @@ impl Object for TextBox {
             self.size.x - 16,
             self.size.y - 8,
             |mut scissor| {
-                let draw_pos = self.position.clone() + Vector2::new(8 - scroll_px, -4, None);
+                let draw_pos = self.position.clone() + Vector2::new(8 - scroll_px, 4, None);
                 scissor.draw_text_ex(
                     &self.font,
                     &self.text,
@@ -401,7 +404,11 @@ impl Object for TextBox {
 
     fn update(&mut self, rl: &mut RaylibHandle, _thread: &RaylibThread, camera: &Camera) {
         self.font_size = self.size.y - 8;
-        self.cursor_blink = (rl.get_time() * 2.0) as i32 % 2 == 0 && self.active;
+        self.cursor_blink =
+            (rl.get_time() * 2.0) as i32 % 2 == 0 && self.active && self.is_editable;
+        if self.is_editable == false {
+            return;
+        }
         let mouse_pos = rl.get_screen_to_world2D(rl.get_mouse_position(), Camera2D::from(camera));
         let rect: Rectangle = self.into();
 
@@ -484,6 +491,21 @@ impl Object for TextBox {
             .measure_text(&scroll_prefix, self.font_size as f32, 1.0)
             .x as i32;
 
+        if self.scalable {
+            let text_px = self
+                .font
+                .measure_text(&self.text, self.font_size as f32, 1.0)
+                .x as i32;
+            if text_px + 16 > self.size.x {
+                self.size.x = text_px;
+            } else if let Some(min_size) = &self.min_size {
+                if self.size.x < min_size.x {
+                    self.size.x = min_size.x;
+                }
+            }
+            return;
+        }
+
         let cursor_prefix: String = self.text.chars().take(self.cursor_index).collect();
         let cursor_px = self
             .font
@@ -562,7 +584,6 @@ pub struct Slider<T: AsF32 + From<f32>> {
     pub background_color: Option<Color>,
     pub foreground_color: Option<Color>,
     pub handle_color: Color,
-    pub handle_size: Option<Vector2>,
     pub step: Option<T>,
     pub z: i32,
 }
@@ -585,6 +606,18 @@ impl<T: AsF32 + From<f32>> Object for Slider<T> {
                 self.size.y,
                 bg_color,
             );
+            draw_handle.draw_circle(
+                self.position.x,
+                self.position.y + self.size.y / 2,
+                self.size.y as f32 / 2.0,
+                bg_color,
+            );
+            draw_handle.draw_circle(
+                self.position.x + self.size.x,
+                self.position.y + self.size.y / 2,
+                self.size.y as f32 / 2.0,
+                bg_color,
+            );
         }
 
         let filled_width = ((self.current_value.as_f32() - self.min_value.as_f32())
@@ -599,6 +632,14 @@ impl<T: AsF32 + From<f32>> Object for Slider<T> {
                 self.size.y,
                 fg_color,
             );
+            if filled_width > 0.0 {
+                draw_handle.draw_circle(
+                    self.position.x,
+                    self.position.y + self.size.y / 2,
+                    self.size.y as f32 / 2.0,
+                    fg_color,
+                );
+            }
         }
 
         let handle_x = self.position.x + filled_width as i32;
@@ -634,8 +675,8 @@ impl<T: AsF32 + From<f32>> Object for Slider<T> {
                     val = self.max_value.as_f32();
                 }
 
-                val = val.round() / self.step.unwrap_or(1.0.into()).as_f32()
-                    * self.step.unwrap_or(1.0.into()).as_f32();
+                let step = self.step.unwrap_or(0.05.into()).as_f32();
+                let val = (val / step).round() * step;
 
                 self.current_value = val.into();
             }

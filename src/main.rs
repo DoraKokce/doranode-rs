@@ -35,26 +35,37 @@ fn main() {
     };
 
     let mut slider: Slider<f32> = Slider {
-        background_color: Some(Color::LIGHTGRAY),
-        current_value: 0.0,
-        foreground_color: None,
-        handle_color: Color::DARKGRAY,
-        max_value: 5.0,
-        min_value: 0.0,
-        position: Vector2::new(0, 100, None),
+        position: Vector2::new(50, 50, None),
         size: Vector2::new(200, 20, None),
-        handle_size: None,
-        step: Some(1.0),
-        z: 1,
+        min_value: 0.0,
+        max_value: 10.0,
+        current_value: 5.0,
+        background_color: Some(Color::GRAY),
+        handle_color: Color::DARKGRAY,
+        foreground_color: Some(Color::BLACK),
+        step: None,
+        z: 0,
     };
 
-    let mut text: TextLabel = TextLabel {
-        font: roboto_font,
-        font_size: 32.0,
-        foreground_color: Color::BLACK,
+    let mut text_box = TextBox {
+        position: Vector2::new(50, 100, None),
+        size: Vector2::new(200, 40, None),
         text: String::new(),
-        position: Vector2::new(0, 100, None),
-        z: 2,
+        font: roboto_font,
+        font_size: 24,
+        active_background_color: Color::LIGHTGRAY,
+        background_color: Color::WHITE,
+        foreground_color: Color::BLACK,
+        border_color: Some(Color::BLACK),
+        border_thickness: Some(2),
+        active: false,
+        cursor_index: 0,
+        scroll_offset: 0,
+        cursor_blink: false,
+        is_editable: false,
+        scalable: true,
+        min_size: Some(Vector2::new(100, 40, None)),
+        z: 0,
     };
 
     while !rl_handle.window_should_close() {
@@ -66,15 +77,15 @@ fn main() {
             );
         }
         slider.update(&mut rl_handle, &thread, &camera);
-        text.update(&mut rl_handle, &thread, &camera);
-        text.text = format!("Slider Value: {:.2}", slider.current_value);
+        text_box.update(&mut rl_handle, &thread, &camera);
+        text_box.text = format!("{:.2}", slider.current_value);
         let mut draw_handle = rl_handle.begin_drawing(&thread);
         draw_handle.clear_background(Color::WHITE);
 
         {
             let mut mode_camera = draw_handle.begin_mode2D(Camera2D::from(camera.clone()));
             slider.draw(&mut mode_camera, &camera);
-            text.draw(&mut mode_camera, &camera);
+            text_box.draw(&mut mode_camera, &camera);
         }
     }
 }
