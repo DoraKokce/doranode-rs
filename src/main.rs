@@ -1,5 +1,5 @@
 use crate::{
-    objects::{Camera, Grid, Object, Rectangle, RoundedRectangle, Slider, Text, TextBox},
+    objects::{Camera, Grid, Object, Rectangle, RoundedRectangle, Slider, TextBox, TextLabel},
     structs::Vector2,
 };
 use raylib::prelude::*;
@@ -48,12 +48,12 @@ fn main() {
         z: 1,
     };
 
-    let mut text: Text = Text {
+    let mut text: TextLabel = TextLabel {
         font: roboto_font,
         font_size: 32.0,
         foreground_color: Color::BLACK,
         text: String::new(),
-        position: Vector2::new(0, -200, None),
+        position: Vector2::new(0, 100, None),
         z: 2,
     };
 

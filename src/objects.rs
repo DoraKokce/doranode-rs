@@ -238,7 +238,7 @@ impl Object for Grid {
 
 /* TEXT */
 #[derive(Debug)]
-pub struct Text {
+pub struct TextLabel {
     pub position: Vector2,
     pub foreground_color: Color,
     pub font: Font,
@@ -247,7 +247,7 @@ pub struct Text {
     pub z: i32,
 }
 
-impl Object for Text {
+impl Object for TextLabel {
     fn z_index(&self) -> i32 {
         self.z
     }
@@ -274,17 +274,22 @@ impl Object for Text {
 #[derive(Debug)]
 pub struct Image {
     pub position: Vector2,
-    pub path: String,
     pub texture: Option<Texture2D>,
+    pub size: Vector2,
     pub z: i32,
 }
 
 impl Image {
-    pub fn load(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread) {
-        if let Ok(tex) = rl.load_texture(thread, &self.path) {
+    pub fn get_image_from_path(
+        &mut self,
+        rl: &mut RaylibHandle,
+        thread: &RaylibThread,
+        path: String,
+    ) {
+        if let Ok(tex) = rl.load_texture(thread, &path) {
             self.texture = Some(tex);
         } else {
-            eprintln!("[-] Resim {} yüklenemedi", self.path);
+            eprintln!("[-] Resim {} yüklenemedi", path);
         }
     }
 }
@@ -300,7 +305,18 @@ impl Object for Image {
 
     fn draw(&self, draw_handle: &mut RaylibDrawHandle, _: &Camera) {
         if let Some(tex) = &self.texture {
-            draw_handle.draw_texture(tex, 100, 100, Color::WHITE);
+            draw_handle.draw_texture_rec(tex, self, self.position(), Color::WHITE);
+        }
+    }
+}
+
+impl From<&Image> for raylib_sys::Rectangle {
+    fn from(value: &Image) -> raylib_sys::Rectangle {
+        raylib_sys::Rectangle {
+            x: value.position.x as f32,
+            y: value.position.y as f32,
+            width: value.size.x as f32,
+            height: value.size.y as f32,
         }
     }
 }
