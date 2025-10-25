@@ -40,31 +40,63 @@ fn main() {
 
     let node = Node::new(
         Vector2::zero(),
-        Vector2::new(150, 200, None),
-        "Test Node",
+        Vector2::new(150, 80, None),
+        "Add Node",
         roboto_font,
         Color::new(60, 60, 60, 255),
         Some(Color::new(30, 30, 30, 255)),
         Color::WHITE,
         None,
+        Some(Box::new(|node: &mut Node| {
+            let a = Node::read_typed_port::<i32>(node, "A", false);
+            let b = Node::read_typed_port::<i32>(node, "A", false);
+            if a.is_none() || b.is_none() {
+                return;
+            }
+            let a = a.unwrap();
+            let b = b.unwrap();
+
+            Node::write_typed_port::<i32>(node, "A + B", a + b, true);
+            println!("{}", a + b);
+        })),
     );
 
     Node::add_port(
         &node,
-        Box::new(Port::<i32>::new(0, None, &node)),
-        "sa",
+        Box::new(Port::<i32>::new(10, None, &node)),
+        "A",
+        false,
+    );
+
+    Node::add_port(
+        &node,
+        Box::new(Port::<i32>::new(30, None, &node)),
+        "B",
         false,
     );
 
     Node::add_port(
         &node,
         Box::new(Port::<i32>::new(20, None, &node)),
-        "sa",
+        "A + B",
         true,
     );
 
     while !rl_handle.window_should_close() {
+        if rl_handle.is_window_resized() {
+            camera.offset = Vector2::new(
+                rl_handle.get_screen_width() / 2,
+                rl_handle.get_screen_height() / 2,
+                None,
+            );
+        }
         node.borrow_mut().update(&mut rl_handle, &thread, &camera);
+        Node::write_typed_port(&node.borrow_mut(), "A", 1, false);
+        Node::write_typed_port(&node.borrow_mut(), "B", 1, false);
+        println!(
+            "{:?}",
+            Node::read_typed_port::<i32>(&node.borrow_mut(), "A + B", true)
+        );
 
         let mut draw_handle = rl_handle.begin_drawing(&thread);
         draw_handle.clear_background(Color::WHITE);
