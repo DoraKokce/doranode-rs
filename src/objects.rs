@@ -8,6 +8,7 @@ pub trait Object {
     fn position(&self) -> Vector2;
     fn draw(&self, draw_handle: &mut RaylibDrawHandle, camera: &Camera);
     fn update(&mut self, _rl: &mut RaylibHandle, _thread: &RaylibThread, _camera: &Camera) {}
+    fn set_position(&mut self, position: Vector2);
 }
 
 /* RECTANGLE */
@@ -28,6 +29,10 @@ impl Object for Rectangle {
 
     fn position(&self) -> Vector2 {
         self.position.clone()
+    }
+
+    fn set_position(&mut self, position: Vector2) {
+        self.position = position;
     }
 
     fn draw(&self, draw_handle: &mut RaylibDrawHandle, _: &Camera) {
@@ -89,6 +94,10 @@ impl Object for RoundedRectangle {
         self.position.clone()
     }
 
+    fn set_position(&mut self, position: Vector2) {
+        self.position = position;
+    }
+
     fn draw(&self, draw_handle: &mut RaylibDrawHandle, _: &Camera) {
         let rect = raylib::prelude::Rectangle::from(self.clone());
 
@@ -148,6 +157,10 @@ impl Object for Circle {
         self.position.clone()
     }
 
+    fn set_position(&mut self, position: Vector2) {
+        self.position = position;
+    }
+
     fn draw(&self, draw_handle: &mut RaylibDrawHandle, _: &Camera) {
         draw_handle.draw_circle(
             self.position.x,
@@ -189,6 +202,10 @@ impl Object for Grid {
 
     fn position(&self) -> Vector2 {
         self.position.clone()
+    }
+
+    fn set_position(&mut self, position: Vector2) {
+        self.position = position;
     }
 
     fn draw(&self, draw_handle: &mut RaylibDrawHandle, _: &Camera) {
@@ -256,6 +273,10 @@ impl Object for TextLabel {
         self.position.clone()
     }
 
+    fn set_position(&mut self, position: Vector2) {
+        self.position = position;
+    }
+
     fn draw(&self, draw_handle: &mut RaylibDrawHandle, _: &Camera) {
         let rl_vec: raylib::prelude::Vector2 = raylib::prelude::Vector2::from(&self.position);
 
@@ -301,6 +322,10 @@ impl Object for Image {
 
     fn position(&self) -> Vector2 {
         self.position.clone()
+    }
+
+    fn set_position(&mut self, position: Vector2) {
+        self.position = position;
     }
 
     fn draw(&self, draw_handle: &mut RaylibDrawHandle, _: &Camera) {
@@ -351,6 +376,10 @@ impl Object for TextBox {
 
     fn position(&self) -> Vector2 {
         self.position.clone()
+    }
+
+    fn set_position(&mut self, position: Vector2) {
+        self.position = position;
     }
 
     fn draw(&self, draw_handle: &mut RaylibDrawHandle, camera: &Camera) {
@@ -595,6 +624,10 @@ impl<T: AsF32 + From<f32>> Object for Slider<T> {
 
     fn position(&self) -> Vector2 {
         self.position.clone()
+    }
+
+    fn set_position(&mut self, position: Vector2) {
+        self.position = position;
     }
 
     fn draw(&self, draw_handle: &mut RaylibDrawHandle, _: &Camera) {

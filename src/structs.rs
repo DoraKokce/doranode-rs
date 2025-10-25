@@ -20,6 +20,10 @@ impl Vector2 {
         Self::new(self.x - origin.x, self.y - origin.y, Some(origin))
     }
 
+    pub fn set_origin(&self, origin: Vector2) -> Self {
+        Self::new(self.x, self.y, Some(origin))
+    }
+
     pub fn from_origin(&self) -> Self {
         let origin: Box<Vector2> = self
             .origin
@@ -28,12 +32,16 @@ impl Vector2 {
         Self::new(self.x + origin.x, self.y + origin.y, None)
     }
 
-    pub fn as_origin(&self) -> Self {
+    pub fn without_origin(&self) -> Self {
         Self::new(self.x, self.y, None)
     }
 
     pub fn zero() -> Self {
         Self::new(0, 0, None)
+    }
+
+    pub fn magnitude(&self) -> f32 {
+        f32::sqrt((self.x * self.x + self.y * self.y) as f32)
     }
 }
 
@@ -101,6 +109,7 @@ impl Div<i32> for Vector2 {
 
 impl From<&Vector2> for raylib::prelude::Vector2 {
     fn from(v: &Vector2) -> Self {
+        let v = v.from_origin();
         raylib::prelude::Vector2 {
             x: v.x as f32,
             y: v.y as f32,
@@ -110,6 +119,7 @@ impl From<&Vector2> for raylib::prelude::Vector2 {
 
 impl From<Vector2> for raylib::prelude::Vector2 {
     fn from(v: Vector2) -> Self {
+        let v = v.from_origin();
         raylib::prelude::Vector2 {
             x: v.x as f32,
             y: v.y as f32,
@@ -119,9 +129,20 @@ impl From<Vector2> for raylib::prelude::Vector2 {
 
 impl From<Vector2> for raylib::ffi::Vector2 {
     fn from(v: Vector2) -> Self {
+        let v = v.from_origin();
         raylib::ffi::Vector2 {
             x: v.x as f32,
             y: v.y as f32,
+        }
+    }
+}
+
+impl From<raylib::prelude::Vector2> for Vector2 {
+    fn from(v: raylib::prelude::Vector2) -> Self {
+        Self {
+            x: v.x as i32,
+            y: v.y as i32,
+            origin: None,
         }
     }
 }

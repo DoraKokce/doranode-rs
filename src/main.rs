@@ -1,9 +1,13 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{
-    objects::{Camera, Grid, Object, Rectangle, RoundedRectangle, Slider, TextBox, TextLabel},
+    node::{AnyPort, Connection, Node, Port},
+    objects::{Camera, Object},
     structs::Vector2,
 };
 use raylib::prelude::*;
 
+mod node;
 mod objects;
 mod structs;
 
@@ -34,58 +38,39 @@ fn main() {
         zoom: 1.0,
     };
 
-    let mut slider: Slider<f32> = Slider {
-        position: Vector2::new(50, 50, None),
-        size: Vector2::new(200, 20, None),
-        min_value: 0.0,
-        max_value: 10.0,
-        current_value: 5.0,
-        background_color: Some(Color::GRAY),
-        handle_color: Color::DARKGRAY,
-        foreground_color: Some(Color::BLACK),
-        step: None,
-        z: 0,
-    };
+    let node = Node::new(
+        Vector2::zero(),
+        Vector2::new(150, 200, None),
+        "Test Node",
+        roboto_font,
+        Color::new(60, 60, 60, 255),
+        Some(Color::new(30, 30, 30, 255)),
+        Color::WHITE,
+        None,
+    );
 
-    let mut text_box = TextBox {
-        position: Vector2::new(50, 100, None),
-        size: Vector2::new(200, 40, None),
-        text: String::new(),
-        font: roboto_font,
-        font_size: 24,
-        active_background_color: Color::LIGHTGRAY,
-        background_color: Color::WHITE,
-        foreground_color: Color::BLACK,
-        border_color: Some(Color::BLACK),
-        border_thickness: Some(2),
-        active: false,
-        cursor_index: 0,
-        scroll_offset: 0,
-        cursor_blink: false,
-        is_editable: false,
-        scalable: true,
-        min_size: Some(Vector2::new(100, 40, None)),
-        z: 0,
-    };
+    Node::add_port(
+        &node,
+        Box::new(Port::<i32>::new(0, None, &node)),
+        "sa",
+        false,
+    );
+
+    Node::add_port(
+        &node,
+        Box::new(Port::<i32>::new(20, None, &node)),
+        "sa",
+        true,
+    );
 
     while !rl_handle.window_should_close() {
-        if rl_handle.is_window_resized() {
-            camera.offset = Vector2::new(
-                rl_handle.get_screen_width() / 2,
-                rl_handle.get_screen_height() / 2,
-                None,
-            );
-        }
-        slider.update(&mut rl_handle, &thread, &camera);
-        text_box.update(&mut rl_handle, &thread, &camera);
-        text_box.text = format!("{:.2}", slider.current_value);
+        node.borrow_mut().update(&mut rl_handle, &thread, &camera);
+
         let mut draw_handle = rl_handle.begin_drawing(&thread);
         draw_handle.clear_background(Color::WHITE);
-
         {
             let mut mode_camera = draw_handle.begin_mode2D(Camera2D::from(camera.clone()));
-            slider.draw(&mut mode_camera, &camera);
-            text_box.draw(&mut mode_camera, &camera);
+            node.borrow().draw(&mut mode_camera, &camera);
         }
     }
 }
