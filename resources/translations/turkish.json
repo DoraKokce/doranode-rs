@@ -1,17 +1,17 @@
 {
-  "math.add": {
+  "doranode:math.add": {
     "title": "Ekleme",
     "description": "A girişi ile B girişini toplar."
   },
-  "math.sub": {
+  "doranode:math.sub": {
     "title": "Çıkarma",
     "description": "A girişinden B girişini çıkartır."
   },
-  "math.div": {
+  "doranode:math.div": {
     "title": "Bölme",
     "description": "A girişini, B girişine böler."
   },
-  "math.mul": {
+  "doranode:math.mul": {
     "title": "Çarpma",
     "description": "A girişi ile B girişini çarpar."
   }

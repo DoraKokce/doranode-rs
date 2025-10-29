@@ -1,7 +1,6 @@
 use std::{cell::RefCell, fs, rc::Rc};
 
 use crate::{
-    node::{AnyPort, Connection, Node, Port},
     node_libary::NodeLibary,
     node_translations::NodeTranslations,
     objects::{Camera, Object},
@@ -61,22 +60,22 @@ fn main() {
     let node_lib = NodeLibary::insert_default_nodes();
     let language = Rc::new(RefCell::new("turkish".to_string()));
 
-    let mut node = node_lib
+    let node = node_lib
         .generate(
-            "math.add",
-            roboto_font.clone(),
-            node_translations.clone(),
-            language.clone(),
-        )
-        .expect("cannot load add");
-    let mut node2 = node_lib
-        .generate(
-            "math.div",
+            "doranode:math.div",
             roboto_font.clone(),
             node_translations.clone(),
             language.clone(),
         )
         .expect("cannot load div");
+    let node2 = node_lib
+        .generate(
+            "doranode:math.mul",
+            roboto_font.clone(),
+            node_translations.clone(),
+            language.clone(),
+        )
+        .expect("cannot load mul");
 
     node2.borrow_mut().set_position((100, 100).into());
 
