@@ -1,0 +1,18 @@
+{
+  "math.add": {
+    "title": "Addition",
+    "description": "Adds input A to input B."
+  },
+  "math.sub": {
+    "title": "Subtraction",
+    "description": "Subtracts input B from input A."
+  },
+  "math.div": {
+    "title": "Division",
+    "description": "Divides input B from input A."
+  },
+  "math.mul": {
+    "title": "Multiplication",
+    "description": "Multiplies input A to input B,"
+  }
+}

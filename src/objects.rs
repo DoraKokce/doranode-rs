@@ -1,3 +1,5 @@
+use std::{cell::RefCell, fmt::Debug, rc::Rc};
+
 use raylib::prelude::*;
 use raylib_sys::CheckCollisionPointRec;
 
@@ -254,11 +256,10 @@ impl Object for Grid {
 }
 
 /* TEXT */
-#[derive(Debug)]
 pub struct TextLabel {
     pub position: Vector2,
     pub foreground_color: Color,
-    pub font: Font,
+    pub font: Rc<Font>,
     pub font_size: f32,
     pub text: String,
     pub z: i32,
@@ -281,7 +282,7 @@ impl Object for TextLabel {
         let rl_vec: raylib::prelude::Vector2 = raylib::prelude::Vector2::from(&self.position);
 
         draw_handle.draw_text_ex(
-            &self.font,
+            &*self.font,
             &self.text,
             rl_vec,
             self.font_size,

@@ -1,0 +1,18 @@
+{
+  "math.add": {
+    "title": "Ekleme",
+    "description": "A girişi ile B girişini toplar."
+  },
+  "math.sub": {
+    "title": "Çıkarma",
+    "description": "A girişinden B girişini çıkartır."
+  },
+  "math.div": {
+    "title": "Bölme",
+    "description": "A girişini, B girişine böler."
+  },
+  "math.mul": {
+    "title": "Çarpma",
+    "description": "A girişi ile B girişini çarpar."
+  }
+}

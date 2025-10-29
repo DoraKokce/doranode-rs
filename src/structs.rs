@@ -146,3 +146,9 @@ impl From<raylib::prelude::Vector2> for Vector2 {
         }
     }
 }
+
+impl Into<Vector2> for (i32, i32) {
+    fn into(self) -> Vector2 {
+        Vector2::new(self.0, self.1, None)
+    }
+}

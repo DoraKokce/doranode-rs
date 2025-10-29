@@ -1,13 +1,17 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, fs, rc::Rc};
 
 use crate::{
     node::{AnyPort, Connection, Node, Port},
+    node_libary::NodeLibary,
+    node_translations::NodeTranslations,
     objects::{Camera, Object},
     structs::Vector2,
 };
 use raylib::prelude::*;
 
 mod node;
+mod node_libary;
+mod node_translations;
 mod objects;
 mod structs;
 
@@ -22,14 +26,30 @@ fn main() {
     rl_handle.set_target_fps(120);
     rl_handle.set_exit_key(None);
 
-    let roboto_font = rl_handle
-        .load_font_ex(
-            &thread,
-            "resources/fonts/Roboto-Regular.ttf",
-            64,
-            Some(TURKISH_ALPHABET),
+    let roboto_font = Rc::new(
+        rl_handle
+            .load_font_ex(
+                &thread,
+                "resources/fonts/Roboto-Regular.ttf",
+                64,
+                Some(TURKISH_ALPHABET),
+            )
+            .expect("[-] Font yüklenemedi"),
+    );
+
+    let node_translations = NodeTranslations::new();
+    node_translations
+        .borrow_mut()
+        .load_from_file(
+            fs::read_to_string("resources/translations/turkish.json")
+                .expect("couldn't load translation"),
+            "turkish",
         )
-        .expect("[-] Font yüklenemedi");
+        .load_from_file(
+            fs::read_to_string("resources/translations/english.json")
+                .expect("couldn't load translation"),
+            "english",
+        );
 
     let mut camera = Camera {
         offset: Vector2::new(320, 240, None),
@@ -38,49 +58,27 @@ fn main() {
         zoom: 1.0,
     };
 
-    let node = Node::new(
-        Vector2::zero(),
-        Vector2::new(150, 80, None),
-        "Add Node",
-        roboto_font,
-        Color::new(60, 60, 60, 255),
-        Some(Color::new(30, 30, 30, 255)),
-        Color::WHITE,
-        None,
-        Some(Box::new(|node: &mut Node| {
-            let a = Node::read_typed_port::<i32>(node, "A", false);
-            let b = Node::read_typed_port::<i32>(node, "A", false);
-            if a.is_none() || b.is_none() {
-                return;
-            }
-            let a = a.unwrap();
-            let b = b.unwrap();
+    let node_lib = NodeLibary::insert_default_nodes();
+    let language = Rc::new(RefCell::new("turkish".to_string()));
 
-            Node::write_typed_port::<i32>(node, "A + B", a + b, true);
-            println!("{}", a + b);
-        })),
-    );
+    let mut node = node_lib
+        .generate(
+            "math.add",
+            roboto_font.clone(),
+            node_translations.clone(),
+            language.clone(),
+        )
+        .expect("cannot load add");
+    let mut node2 = node_lib
+        .generate(
+            "math.div",
+            roboto_font.clone(),
+            node_translations.clone(),
+            language.clone(),
+        )
+        .expect("cannot load div");
 
-    Node::add_port(
-        &node,
-        Box::new(Port::<i32>::new(10, None, &node)),
-        "A",
-        false,
-    );
-
-    Node::add_port(
-        &node,
-        Box::new(Port::<i32>::new(30, None, &node)),
-        "B",
-        false,
-    );
-
-    Node::add_port(
-        &node,
-        Box::new(Port::<i32>::new(20, None, &node)),
-        "A + B",
-        true,
-    );
+    node2.borrow_mut().set_position((100, 100).into());
 
     while !rl_handle.window_should_close() {
         if rl_handle.is_window_resized() {
@@ -91,18 +89,18 @@ fn main() {
             );
         }
         node.borrow_mut().update(&mut rl_handle, &thread, &camera);
-        Node::write_typed_port(&node.borrow_mut(), "A", 1, false);
-        Node::write_typed_port(&node.borrow_mut(), "B", 1, false);
-        println!(
-            "{:?}",
-            Node::read_typed_port::<i32>(&node.borrow_mut(), "A + B", true)
-        );
+        node2.borrow_mut().update(&mut rl_handle, &thread, &camera);
 
         let mut draw_handle = rl_handle.begin_drawing(&thread);
         draw_handle.clear_background(Color::WHITE);
         {
             let mut mode_camera = draw_handle.begin_mode2D(Camera2D::from(camera.clone()));
             node.borrow().draw(&mut mode_camera, &camera);
+            node2.borrow().draw(&mut mode_camera, &camera);
+
+            if node2.borrow().active {
+                node.borrow_mut().active = false;
+            }
         }
     }
 }
