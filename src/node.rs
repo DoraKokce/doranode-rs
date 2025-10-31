@@ -1,15 +1,10 @@
-use std::{
-    any::Any,
-    cell::RefCell,
-    collections::HashMap,
-    rc::{Rc, Weak},
-};
+use std::{any::Any, cell::RefCell, rc::Rc};
 
 use raylib::prelude::*;
 use raylib_sys::{CheckCollisionPointRec, rlPopMatrix, rlPushMatrix, rlTranslatef};
 
 use crate::{
-    node_translations::NodeTranslations,
+    node_translations::Translations,
     objects::{self, Camera, Object},
     structs::Vector2,
 };
@@ -50,17 +45,15 @@ pub trait AnyPort {
 pub struct Port<T: Clone> {
     pub y_offset: i32,
     pub color: Color,
-    pub parent: Weak<RefCell<Node>>,
     pub data: Option<T>,
     pub position: Vector2,
 }
 
 impl<T: Clone + TypeColor> Port<T> {
-    pub fn new(offset: i32, color: Option<Color>, parent: &Rc<RefCell<Node>>) -> Self {
+    pub fn new(offset: i32, color: Option<Color>) -> Self {
         Self {
             y_offset: offset,
             color: color.unwrap_or(<T as TypeColor>::COLOR),
-            parent: Rc::downgrade(parent),
             data: None,
             position: Vector2::zero(),
         }
@@ -152,7 +145,7 @@ pub struct Node {
     pub update_fn: Option<Box<dyn Fn(&mut Node) + 'static>>,
     pub draw_fn: Option<Box<dyn Fn(&Node, &mut RaylibDrawHandle, Camera) + 'static>>,
     pub type_name: &'static str,
-    pub translations: Rc<RefCell<NodeTranslations>>,
+    pub translations: Rc<RefCell<Translations>>,
     pub language: Rc<RefCell<String>>,
     pub z: i32,
 }
@@ -371,7 +364,7 @@ impl Node {
         update_fn: Option<Box<dyn Fn(&mut Node) + 'static>>,
         draw_fn: Option<Box<dyn Fn(&Node, &mut RaylibDrawHandle, Camera) + 'static>>,
         type_name: &'static str,
-        translations: Rc<RefCell<NodeTranslations>>,
+        translations: Rc<RefCell<Translations>>,
         language: Rc<RefCell<String>>,
     ) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {

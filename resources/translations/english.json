@@ -1,18 +1,26 @@
 {
-  "doranode:math.add": {
-    "title": "Addition",
-    "description": "Adds input A to input B."
+  "nodes": {
+    "doranode:math.add": {
+      "title": "Addition",
+      "description": "Adds input A to input B."
+    },
+    "doranode:math.sub": {
+      "title": "Subtraction",
+      "description": "Subtracts input B from input A."
+    },
+    "doranode:math.div": {
+      "title": "Division",
+      "description": "Divides input B from input A."
+    },
+    "doranode:math.mul": {
+      "title": "Multiplication",
+      "description": "Multiplies input A to input B,"
+    }
   },
-  "doranode:math.sub": {
-    "title": "Subtraction",
-    "description": "Subtracts input B from input A."
-  },
-  "doranode:math.div": {
-    "title": "Division",
-    "description": "Divides input B from input A."
-  },
-  "doranode:math.mul": {
-    "title": "Multiplication",
-    "description": "Multiplies input A to input B,"
+  "gui": {
+    "window.title": "Doranode Visual Programing Tool",
+    "text.ok": "Okay",
+    "text.cancel": "Cancel",
+    "text.continue": "Continue"
   }
 }

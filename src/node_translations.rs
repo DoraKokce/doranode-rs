@@ -7,36 +7,59 @@ pub struct NodeText {
     pub description: String,
 }
 
-#[derive(Debug)]
-pub struct NodeTranslations {
-    pub translations: HashMap<String, HashMap<String, NodeText>>,
+#[derive(Debug, Deserialize)]
+struct TranslationFile {
+    nodes: Option<HashMap<String, NodeText>>,
+    gui: Option<HashMap<String, String>>,
 }
 
-impl NodeTranslations {
+#[derive(Debug)]
+pub struct Translations {
+    pub node_translations: HashMap<String, HashMap<String, NodeText>>,
+    pub gui_translations: HashMap<String, HashMap<String, String>>,
+}
+
+impl Translations {
     pub fn new() -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
-            translations: HashMap::new(),
+            node_translations: HashMap::new(),
+            gui_translations: HashMap::new(),
         }))
     }
 
     pub fn load_from_file(&mut self, file_contents: String, language: &str) -> &mut Self {
-        let node_translations: HashMap<String, NodeText> =
+        let parsed: TranslationFile =
             serde_json::from_str(&file_contents).expect("Couldn't parse translation JSON");
 
-        self.translations
-            .insert(language.to_string(), node_translations);
+        if let Some(nodes) = parsed.nodes {
+            self.node_translations.insert(language.to_string(), nodes);
+        }
+
+        if let Some(gui) = parsed.gui {
+            self.gui_translations.insert(language.to_string(), gui);
+        }
+
         self
     }
 
     pub fn get_node_translation(&self, language: &str, type_name: &str) -> NodeText {
-        self.translations
+        self.node_translations
             .get(language)
-            .unwrap_or_else(|| self.translations.get("en").unwrap())
+            .unwrap_or_else(|| self.node_translations.get("en").unwrap())
             .get(type_name)
             .cloned()
             .unwrap_or_else(|| NodeText {
                 title: "???".to_string(),
                 description: format!("This node doesn't support '{}'", type_name),
             })
+    }
+
+    pub fn get_gui_translation(&self, language: &str, key: &str) -> String {
+        self.gui_translations
+            .get(language)
+            .unwrap_or_else(|| self.gui_translations.get("en").unwrap())
+            .get(key)
+            .cloned()
+            .unwrap_or_else(|| format!("Missing GUI text: {}", key))
     }
 }

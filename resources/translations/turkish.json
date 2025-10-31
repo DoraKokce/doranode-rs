@@ -1,18 +1,26 @@
 {
-  "doranode:math.add": {
-    "title": "Ekleme",
-    "description": "A girişi ile B girişini toplar."
+  "nodes": {
+    "doranode:math.add": {
+      "title": "Ekleme",
+      "description": "A girişi ile B girişini toplar."
+    },
+    "doranode:math.sub": {
+      "title": "Çıkarma",
+      "description": "A girişinden B girişini çıkartır."
+    },
+    "doranode:math.div": {
+      "title": "Bölme",
+      "description": "A girişini, B girişine böler."
+    },
+    "doranode:math.mul": {
+      "title": "Çarpma",
+      "description": "A girişi ile B girişini çarpar."
+    }
   },
-  "doranode:math.sub": {
-    "title": "Çıkarma",
-    "description": "A girişinden B girişini çıkartır."
-  },
-  "doranode:math.div": {
-    "title": "Bölme",
-    "description": "A girişini, B girişine böler."
-  },
-  "doranode:math.mul": {
-    "title": "Çarpma",
-    "description": "A girişi ile B girişini çarpar."
+  "gui": {
+    "window.title": "Doranode Görsel Programlama Aracı",
+    "text.ok": "Tamam",
+    "text.cancel": "İptal",
+    "text.continue": "Devam"
   }
 }

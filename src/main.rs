@@ -2,7 +2,7 @@ use std::{cell::RefCell, fs, rc::Rc};
 
 use crate::{
     node_libary::NodeLibary,
-    node_translations::NodeTranslations,
+    node_translations::Translations,
     objects::{Camera, Object},
     structs::Vector2,
 };
@@ -36,8 +36,8 @@ fn main() {
             .expect("[-] Font yüklenemedi"),
     );
 
-    let node_translations = NodeTranslations::new();
-    node_translations
+    let translations = Translations::new();
+    translations
         .borrow_mut()
         .load_from_file(
             fs::read_to_string("resources/translations/turkish.json")
@@ -49,6 +49,16 @@ fn main() {
                 .expect("couldn't load translation"),
             "english",
         );
+    let language = Rc::new(RefCell::new("turkish".to_string()));
+
+    rl_handle.set_window_title(
+        &thread,
+        &translations
+            .borrow()
+            .get_gui_translation(&language.borrow(), "window.title"),
+    );
+
+    let node_lib = NodeLibary::insert_default_nodes();
 
     let mut camera = Camera {
         offset: Vector2::new(320, 240, None),
@@ -57,14 +67,11 @@ fn main() {
         zoom: 1.0,
     };
 
-    let node_lib = NodeLibary::insert_default_nodes();
-    let language = Rc::new(RefCell::new("turkish".to_string()));
-
     let node = node_lib
         .generate(
             "doranode:math.div",
             roboto_font.clone(),
-            node_translations.clone(),
+            translations.clone(),
             language.clone(),
         )
         .expect("cannot load div");
@@ -72,7 +79,7 @@ fn main() {
         .generate(
             "doranode:math.mul",
             roboto_font.clone(),
-            node_translations.clone(),
+            translations.clone(),
             language.clone(),
         )
         .expect("cannot load mul");
@@ -90,16 +97,16 @@ fn main() {
         node.borrow_mut().update(&mut rl_handle, &thread, &camera);
         node2.borrow_mut().update(&mut rl_handle, &thread, &camera);
 
+        if node2.borrow().active {
+            node.borrow_mut().active = false;
+        }
+
         let mut draw_handle = rl_handle.begin_drawing(&thread);
         draw_handle.clear_background(Color::WHITE);
         {
             let mut mode_camera = draw_handle.begin_mode2D(Camera2D::from(camera.clone()));
             node.borrow().draw(&mut mode_camera, &camera);
             node2.borrow().draw(&mut mode_camera, &camera);
-
-            if node2.borrow().active {
-                node.borrow_mut().active = false;
-            }
         }
     }
 }
