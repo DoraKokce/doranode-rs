@@ -25,13 +25,12 @@ fn add_ctor(
         let module = PyModule::from_code(
             py,
             c_str!(
-                "def update():\n\toutputs[\"A + B\"] = (inputs[\"A\"] or 0) + (inputs[\"B\"] or 0)"
+                "def update(**kwargs):\n\toutputs = {}\n\toutputs[\"A + B\"] = (kwargs.get(\"inputs\")[\"A\"] or 0) + (kwargs.get(\"inputs\")[\"B\"] or 0)\n\treturn outputs"
             ),
             c_str!(""),
             c_str!(""),
-        )
-        .ok()?;
-        let func = module.getattr("update").ok()?;
+        ).expect("msg");
+        let func = module.getattr("update").expect("msg");
         Some(func.into())
     });
 
@@ -103,7 +102,7 @@ fn sub_ctor(
         let module = PyModule::from_code(
             py,
             c_str!(
-                "def update():\n\toutputs[\"A - B\"] = (inputs[\"A\"] or 0) - (inputs[\"B\"] or 0)"
+                "def update(**kwargs):\n\toutputs = {}\n\toutputs[\"A - B\"] = (kwargs.get(\"inputs\")[\"A\"] or 0) - (kwargs.get(\"inputs\")[\"B\"] or 0)\n\treturn outputs"
             ),
             c_str!(""),
             c_str!(""),
@@ -174,7 +173,7 @@ fn div_ctor(
         let module = PyModule::from_code(
             py,
             c_str!(
-                "def update():\n\toutputs[\"A / B\"] = (inputs[\"A\"] or 0) / (inputs[\"B\"] or 0)"
+                "def update(**kwargs):\n\toutputs = {}\n\toutputs[\"A / B\"] = (kwargs.get(\"inputs\")[\"A\"] or 0) / (kwargs.get(\"inputs\")[\"B\"] or 0)\n\treturn outputs"
             ),
             c_str!(""),
             c_str!(""),
@@ -257,7 +256,7 @@ fn mul_ctor(
         let module = PyModule::from_code(
             py,
             c_str!(
-                "def update():\n\toutputs[\"A x B\"] = (inputs[\"A\"] or 0) * (inputs[\"B\"] or 0)"
+                "def update(**kwargs):\n\toutputs = {}\n\toutputs[\"A x B\"] = (kwargs.get(\"inputs\")[\"A\"] or 0) * (kwargs.get(\"inputs\")[\"B\"] or 0)\n\treturn outputs"
             ),
             c_str!(""),
             c_str!(""),

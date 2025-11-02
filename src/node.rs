@@ -1,10 +1,10 @@
 use std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc};
 
 use pyo3::{
-    IntoPyObjectExt, PyAny, PyClass,
+    PyAny,
     ffi::c_str,
     prelude::*,
-    types::{PyBool, PyDict, PyFloat, PyInt, PyNone, PyString},
+    types::{IntoPyDict, PyDict, PyTuple},
 };
 use raylib::prelude::*;
 use raylib_sys::{CheckCollisionPointRec, rlPopMatrix, rlPushMatrix, rlTranslatef};
@@ -34,7 +34,7 @@ impl Object for Port {
         0
     }
 
-    fn draw(&self, draw_handle: &mut RaylibDrawHandle, camera: &Camera) {
+    fn draw(&self, draw_handle: &mut RaylibDrawHandle, _: &Camera) {
         draw_handle.draw_circle(self.position.x, self.position.y, 6.0, Color::ORANGE);
         draw_handle.draw_circle_lines(self.position.x, self.position.y, 6.0, self.border_color);
     }
@@ -49,11 +49,11 @@ impl Port {
         })
     }
 
-    fn read(&self, py: Python<'_>) -> Py<PyAny> {
+    pub fn read(&self, py: Python<'_>) -> Py<PyAny> {
         self.data.clone_ref(py)
     }
 
-    fn write(&mut self, value: Py<PyAny>) {
+    pub fn write(&mut self, value: Py<PyAny>) {
         self.data = value;
     }
 }
@@ -175,31 +175,32 @@ impl Object for Node {
             }
         }
 
-        if let Some(update_fn) = &self.update_fn {
-            Python::attach(|py| {
+        if let Some(update_fn) = self.update_fn.take() {
+            println!("ok i pull up");
+            let _ = Python::attach(|py| -> PyResult<()> {
                 let inputs = self.get_inputs_py_dict(py);
-                let outputs: Py<PyDict> = PyDict::new(py).into();
 
-                let globals = PyDict::new(py);
-                globals.set_item("inputs", &inputs);
-                globals.set_item("outputs", &outputs);
-                globals.set_item("update", self.update_fn.as_ref());
+                let kwargs = PyDict::new(py);
+                kwargs.set_item("inputs", &inputs).expect("msg");
 
-                py.run(c_str!("update()"), Some(&globals), None);
+                let outputs: HashMap<String, Py<PyAny>> = update_fn
+                    .call(py, PyTuple::empty(py), Some(&kwargs))
+                    .expect("msg")
+                    .extract(py)
+                    .expect("msg");
 
-                let node_outputs: Vec<(String, &Rc<RefCell<Box<Port>>>)> = self.get_outputs();
-                let outputs: &HashMap<String, Py<PyAny>> =
-                    &outputs.extract::<HashMap<String, Py<PyAny>>>(py).unwrap();
-                for (key, value) in outputs {
-                    if let Some((_, port_rc)) =
-                        node_outputs.iter().find(|(port_key, _)| port_key == key)
-                    {
-                        let mut port = port_rc.borrow_mut();
+                println!("{}", &inputs);
+                println!("{:?}", &outputs);
 
-                        port.write(value.clone_ref(py));
-                    }
+                println!("ok i pull up");
+
+                for (label, value) in &outputs {
+                    self.write_port(label, value.clone_ref(py));
                 }
+
+                Ok(())
             });
+            self.update_fn = Some(update_fn);
         }
     }
 
@@ -423,6 +424,20 @@ impl Node {
         }
 
         dict.into()
+    }
+
+    pub fn write_port(&mut self, label: &str, value: Py<PyAny>) {
+        self.ports
+            .iter()
+            .find(|(l, _, _, _)| l == label)
+            .map(|(_, _, _, port)| port.borrow_mut().write(value));
+    }
+
+    pub fn read_port(&self, label: &str, py: Python) -> Option<Py<PyAny>> {
+        self.ports
+            .iter()
+            .find(|(l, _, _, _)| l == label)
+            .map(|(_, _, _, port)| port.borrow().read(py))
     }
 }
 

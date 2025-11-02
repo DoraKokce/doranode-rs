@@ -6,7 +6,7 @@ use crate::{
     structs::Vector2,
     translations::Translations,
 };
-use pyo3::Python;
+use pyo3::{Python, types::PyInt};
 use raylib::prelude::*;
 
 mod node;
@@ -77,17 +77,7 @@ fn main() {
             translations.clone(),
             language.clone(),
         )
-        .expect("cannot load div");
-    let node2 = node_lib
-        .generate(
-            "doranode:math.sub",
-            roboto_font.clone(),
-            translations.clone(),
-            language.clone(),
-        )
-        .expect("cannot load mul");
-
-    node2.borrow_mut().set_position((100, 100).into());
+        .expect("cannot load add");
 
     while !rl_handle.window_should_close() {
         if rl_handle.is_window_resized() {
@@ -97,19 +87,19 @@ fn main() {
                 None,
             );
         }
+
+        Python::attach(|py| {
+            node.borrow_mut().write_port("A", PyInt::new(py, 1).into());
+            node.borrow_mut().write_port("B", PyInt::new(py, 1).into());
+            println!("{}", node.borrow().read_port("A + B", py).unwrap());
+        });
+
         node.borrow_mut().update(&mut rl_handle, &thread, &camera);
-        node2.borrow_mut().update(&mut rl_handle, &thread, &camera);
-
-        if node2.borrow().active {
-            node.borrow_mut().active = false;
-        }
-
         let mut draw_handle = rl_handle.begin_drawing(&thread);
         draw_handle.clear_background(Color::WHITE);
         {
             let mut mode_camera = draw_handle.begin_mode2D(Camera2D::from(camera.clone()));
             node.borrow().draw(&mut mode_camera, &camera);
-            node2.borrow().draw(&mut mode_camera, &camera);
         }
     }
 }
