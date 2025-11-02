@@ -5,9 +5,9 @@ use raylib::prelude::*;
 use crate::{
     node::{Node, Port},
     node_libary::NodeLibary,
-    node_translations::Translations,
     objects::Camera,
     structs::Vector2,
+    translations::Translations,
 };
 
 fn add_ctor(

@@ -2,17 +2,17 @@ use std::{cell::RefCell, fs, rc::Rc};
 
 use crate::{
     node_libary::NodeLibary,
-    node_translations::Translations,
     objects::{Camera, Object},
     structs::Vector2,
+    translations::Translations,
 };
 use raylib::prelude::*;
 
 mod node;
 mod node_libary;
-mod node_translations;
 mod objects;
 mod structs;
+mod translations;
 
 const TURKISH_ALPHABET: &str = " ABCDEFGHIİJKLMNOÖPRSŞTUÜVYZQWXYZabcdefghijklmnopqrstuvwxyzçğıöşüÇĞİÖŞÜ0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";
 

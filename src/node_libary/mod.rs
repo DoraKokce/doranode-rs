@@ -4,9 +4,9 @@ use raylib::prelude::*;
 
 use crate::{
     node::{Node, Port},
-    node_translations::Translations,
     objects::Camera,
     structs::Vector2,
+    translations::Translations,
 };
 
 mod math;

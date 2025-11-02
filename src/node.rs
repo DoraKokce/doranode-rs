@@ -4,9 +4,9 @@ use raylib::prelude::*;
 use raylib_sys::{CheckCollisionPointRec, rlPopMatrix, rlPushMatrix, rlTranslatef};
 
 use crate::{
-    node_translations::Translations,
     objects::{self, Camera, Object},
     structs::Vector2,
+    translations::Translations,
 };
 
 pub trait TypeColor {
