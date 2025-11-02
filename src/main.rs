@@ -6,6 +6,7 @@ use crate::{
     structs::Vector2,
     translations::Translations,
 };
+use pyo3::Python;
 use raylib::prelude::*;
 
 mod node;
@@ -21,6 +22,8 @@ fn main() {
         .size(640, 480)
         .title("DoraNode beta test v1")
         .build();
+
+    Python::initialize();
 
     rl_handle.set_target_fps(120);
     rl_handle.set_exit_key(None);
@@ -69,7 +72,7 @@ fn main() {
 
     let node = node_lib
         .generate(
-            "doranode:math.div",
+            "doranode:math.add",
             roboto_font.clone(),
             translations.clone(),
             language.clone(),
@@ -77,7 +80,7 @@ fn main() {
         .expect("cannot load div");
     let node2 = node_lib
         .generate(
-            "doranode:math.mul",
+            "doranode:math.sub",
             roboto_font.clone(),
             translations.clone(),
             language.clone(),

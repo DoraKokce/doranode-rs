@@ -1,5 +1,11 @@
-use std::{any::Any, cell::RefCell, rc::Rc};
+use std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc};
 
+use pyo3::{
+    IntoPyObjectExt, PyAny, PyClass,
+    ffi::c_str,
+    prelude::*,
+    types::{PyBool, PyDict, PyFloat, PyInt, PyNone, PyString},
+};
 use raylib::prelude::*;
 use raylib_sys::{CheckCollisionPointRec, rlPopMatrix, rlPushMatrix, rlTranslatef};
 
@@ -9,95 +15,52 @@ use crate::{
     translations::Translations,
 };
 
-pub trait TypeColor {
-    const COLOR: Color;
-}
-impl TypeColor for i32 {
-    const COLOR: Color = Color::ORANGE;
-}
-
-impl TypeColor for f32 {
-    const COLOR: Color = Color::ORANGERED;
+pub struct Port {
+    data: Py<PyAny>,
+    position: Vector2,
+    border_color: Color,
 }
 
-impl TypeColor for String {
-    const COLOR: Color = Color::GREEN;
-}
-
-impl TypeColor for bool {
-    const COLOR: Color = Color::YELLOW;
-}
-
-impl TypeColor for () {
-    const COLOR: Color = Color::GRAY;
-}
-
-pub trait AnyPort {
-    fn color(&self) -> Color;
-    fn y_offset(&self) -> i32;
-    fn as_any(&self) -> &dyn Any;
-    fn set_position(&mut self, position: Vector2);
-    fn get_position(&self) -> Vector2;
-    fn read(&self) -> Option<&dyn Any>;
-    fn write(&mut self, data: Option<&dyn Any>);
-}
-
-pub struct Port<T: Clone> {
-    pub y_offset: i32,
-    pub color: Color,
-    pub data: Option<T>,
-    pub position: Vector2,
-}
-
-impl<T: Clone + TypeColor> Port<T> {
-    pub fn new(offset: i32, color: Option<Color>) -> Self {
-        Self {
-            y_offset: offset,
-            color: color.unwrap_or(<T as TypeColor>::COLOR),
-            data: None,
-            position: Vector2::zero(),
-        }
-    }
-}
-
-impl<T: Clone + TypeColor + 'static> AnyPort for Port<T> {
-    fn color(&self) -> Color {
-        self.color
-    }
-
-    fn y_offset(&self) -> i32 {
-        self.y_offset
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
+impl Object for Port {
+    fn position(&self) -> Vector2 {
+        self.position.clone()
     }
 
     fn set_position(&mut self, position: Vector2) {
         self.position = position;
     }
 
-    fn get_position(&self) -> Vector2 {
-        self.position.clone()
+    fn z_index(&self) -> i32 {
+        0
     }
 
-    fn read(&self) -> Option<&dyn Any> {
-        self.data.as_ref().map(|d| d as &dyn Any)
+    fn draw(&self, draw_handle: &mut RaylibDrawHandle, camera: &Camera) {
+        draw_handle.draw_circle(self.position.x, self.position.y, 6.0, Color::ORANGE);
+        draw_handle.draw_circle_lines(self.position.x, self.position.y, 6.0, self.border_color);
+    }
+}
+
+impl Port {
+    pub fn new(border_color: Color) -> Self {
+        Python::attach(|py| Self {
+            data: py.None().into(),
+            position: Vector2::zero(),
+            border_color,
+        })
     }
 
-    fn write(&mut self, data: Option<&dyn Any>) {
-        if let Some(d) = data {
-            if let Some(value) = d.downcast_ref::<T>() {
-                self.data = Some(value.clone());
-            }
-        }
+    fn read(&self, py: Python<'_>) -> Py<PyAny> {
+        self.data.clone_ref(py)
+    }
+
+    fn write(&mut self, value: Py<PyAny>) {
+        self.data = value;
     }
 }
 
 pub struct Connection {
-    pub from: Rc<RefCell<Box<dyn AnyPort>>>,
-    pub to: Rc<RefCell<Box<dyn AnyPort>>>,
-    pub color: Color,
+    pub from: Rc<RefCell<Port>>,
+    pub to: Rc<RefCell<Port>>,
     pub z: i32,
 }
 
@@ -112,19 +75,20 @@ impl Object for Connection {
 
     fn set_position(&mut self, _position: Vector2) {}
 
-    fn update(&mut self, rl_handle: &mut RaylibHandle, rl_thread: &RaylibThread, camera: &Camera) {
+    fn update(&mut self, _: &mut RaylibHandle, _: &RaylibThread, _: &Camera) {
         let from = self.from.borrow();
         let mut to = self.to.borrow_mut();
 
-        to.write(from.read());
-        self.color = from.color();
+        Python::attach(|py| {
+            to.data = from.data.clone_ref(py);
+        });
     }
 
     fn draw(&self, draw_handle: &mut RaylibDrawHandle, _camera: &Camera) {
-        let from_pos = self.from.borrow().get_position().clone();
-        let to_pos = self.to.borrow().get_position().clone();
+        let from_pos = self.from.borrow().position();
+        let to_pos = self.to.borrow().position();
 
-        draw_handle.draw_line_bezier(from_pos, to_pos, 3.0, self.color);
+        draw_handle.draw_line_bezier(from_pos, to_pos, 3.0, Color::ORANGE);
     }
 }
 
@@ -135,14 +99,14 @@ pub struct Node {
     pub border_color: Option<Color>,
     pub foreground_color: Color,
     pub components: Vec<Box<dyn Object>>,
-    pub ports: Vec<(String, bool, Rc<RefCell<Box<dyn AnyPort>>>)>,
+    pub ports: Vec<(String, bool, i32, Rc<RefCell<Box<Port>>>)>,
     pub active_color: Option<Color>,
     pub mouse_offset: Option<Vector2>,
     pub active: bool,
     pub roundness: f32,
     pub font: Rc<Font>,
     pub title_height: f32,
-    pub update_fn: Option<Box<dyn Fn(&mut Node) + 'static>>,
+    pub update_fn: Option<Py<PyAny>>,
     pub draw_fn: Option<Box<dyn Fn(&Node, &mut RaylibDrawHandle, Camera) + 'static>>,
     pub type_name: &'static str,
     pub translations: Rc<RefCell<Translations>>,
@@ -197,11 +161,11 @@ impl Object for Node {
             self.mouse_offset = None;
         }
 
-        for (_, is_output, port) in self.ports.iter() {
+        for (_, is_output, y_offset, port) in self.ports.iter() {
             let mut port_borrow = port.borrow_mut();
             let port_position = Vector2::new(
                 self.positon.x + if *is_output { self.size.x } else { 0 },
-                self.positon.y + port_borrow.y_offset() + 6,
+                self.positon.y + y_offset + 6,
                 None,
             );
 
@@ -211,9 +175,31 @@ impl Object for Node {
             }
         }
 
-        if let Some(update_fn) = self.update_fn.take() {
-            update_fn(self);
-            self.update_fn = Some(update_fn);
+        if let Some(update_fn) = &self.update_fn {
+            Python::attach(|py| {
+                let inputs = self.get_inputs_py_dict(py);
+                let outputs: Py<PyDict> = PyDict::new(py).into();
+
+                let globals = PyDict::new(py);
+                globals.set_item("inputs", &inputs);
+                globals.set_item("outputs", &outputs);
+                globals.set_item("update", self.update_fn.as_ref());
+
+                py.run(c_str!("update()"), Some(&globals), None);
+
+                let node_outputs: Vec<(String, &Rc<RefCell<Box<Port>>>)> = self.get_outputs();
+                let outputs: &HashMap<String, Py<PyAny>> =
+                    &outputs.extract::<HashMap<String, Py<PyAny>>>(py).unwrap();
+                for (key, value) in outputs {
+                    if let Some((_, port_rc)) =
+                        node_outputs.iter().find(|(port_key, _)| port_key == key)
+                    {
+                        let mut port = port_rc.borrow_mut();
+
+                        port.write(value.clone_ref(py));
+                    }
+                }
+            });
         }
     }
 
@@ -316,17 +302,9 @@ impl Object for Node {
         );
 
         /* Draw inputs and outputs */
-        for (label, is_output, port) in self.ports.iter() {
-            let port_borrow = port.borrow();
-            let port_pos = port_borrow.get_position();
-
-            draw_handle.draw_circle_v(
-                Vector2::new(port_pos.x, port_pos.y, None),
-                6.0,
-                port_borrow.color(),
-            );
-
-            draw_handle.draw_circle_lines(port_pos.x, port_pos.y, 6.0, border_color);
+        for (label, is_output, _, port) in self.ports.iter() {
+            let port_pos = port.borrow().position();
+            port.borrow().draw(draw_handle, camera);
 
             let text_size = 16.0;
             let text_spacing = self.font.measure_text(label, text_size, 1.0);
@@ -361,7 +339,7 @@ impl Node {
         border_color: Option<Color>,
         foreground_color: Color,
         active_color: Option<Color>,
-        update_fn: Option<Box<dyn Fn(&mut Node) + 'static>>,
+        update_fn: Option<Py<PyAny>>,
         draw_fn: Option<Box<dyn Fn(&Node, &mut RaylibDrawHandle, Camera) + 'static>>,
         type_name: &'static str,
         translations: Rc<RefCell<Translations>>,
@@ -396,58 +374,55 @@ impl Node {
 
     pub fn add_port(
         this: &Rc<RefCell<Self>>,
-        port: Box<dyn AnyPort>,
+        port: Box<Port>,
         label: &str,
         is_output: bool,
+        y_offset: i32,
     ) {
-        this.borrow_mut()
-            .ports
-            .push((label.to_string(), is_output, Rc::new(RefCell::new(port))));
+        this.borrow_mut().ports.push((
+            label.to_string(),
+            is_output,
+            y_offset,
+            Rc::new(RefCell::new(port)),
+        ));
     }
 
-    pub fn add_ports(this: &Rc<RefCell<Self>>, ports: Vec<(Box<dyn AnyPort>, &str, bool)>) {
-        for (port, label, is_output) in ports {
-            Node::add_port(this, port, label, is_output);
-        }
-    }
-
-    pub fn get_port(&self, label: &str, is_output: bool) -> Option<Rc<RefCell<Box<dyn AnyPort>>>> {
-        for (port_label, port_is_output, port) in &self.ports {
-            if port_label == label && *port_is_output == is_output {
-                return Some(port.clone());
-            }
-        }
-        None
-    }
-
-    pub fn read_typed_port<T: 'static + Clone>(
-        node: &Node,
-        label: &str,
-        is_output: bool,
-    ) -> Option<T> {
-        node.get_port(label, is_output).and_then(|port_rc| {
-            let port_ref = port_rc.borrow();
-            port_ref
-                .read()
-                .and_then(|any_value| any_value.downcast_ref::<T>().cloned())
-        })
-    }
-
-    pub fn write_typed_port<T: 'static + Clone>(
-        node: &Node,
-        label: &str,
-        value: T,
-        is_output: bool,
-    ) {
-        if let Some(port_rc) = node.get_port(label, is_output) {
-            let mut port_ref = port_rc.borrow_mut();
-            let any_ref = &value as &dyn Any;
-            port_ref.write(Some(any_ref));
+    pub fn add_ports(this: &Rc<RefCell<Self>>, ports: Vec<(Box<Port>, &str, bool, i32)>) {
+        for (port, label, is_output, y_offset) in ports {
+            Node::add_port(this, port, label, is_output, y_offset);
         }
     }
 
     pub fn add_component(&mut self, component: Box<dyn Object>) {
         self.components.push(component);
+    }
+
+    pub fn get_inputs(&self) -> Vec<(String, &Rc<RefCell<Box<Port>>>)> {
+        self.ports
+            .iter()
+            .filter(|(_, is_output, _, _)| !*is_output)
+            .map(|(label, _, _, port)| (label.clone(), port))
+            .collect()
+    }
+
+    pub fn get_outputs(&self) -> Vec<(String, &Rc<RefCell<Box<Port>>>)> {
+        self.ports
+            .iter()
+            .filter(|(_, is_output, _, _)| *is_output)
+            .map(|(label, _, _, port)| (label.clone(), port))
+            .collect()
+    }
+
+    pub fn get_inputs_py_dict(&self, py: Python) -> Py<PyDict> {
+        let dict = PyDict::new(py);
+
+        let inputs = self.get_inputs();
+
+        for (key, port) in inputs {
+            dict.set_item(key, port.borrow().read(py)).unwrap();
+        }
+
+        dict.into()
     }
 }
 

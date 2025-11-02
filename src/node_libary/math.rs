@@ -1,5 +1,11 @@
 use std::{cell::RefCell, rc::Rc};
 
+use pyo3::{
+    PyAny, Python,
+    ffi::c_str,
+    prelude::*,
+    types::{PyAnyMethods, PyModule},
+};
 use raylib::prelude::*;
 
 use crate::{
@@ -15,6 +21,20 @@ fn add_ctor(
     translations: Rc<RefCell<Translations>>,
     language: Rc<RefCell<String>>,
 ) -> Rc<RefCell<Node>> {
+    let update_fn: Option<Py<PyAny>> = Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c_str!(
+                "def update():\n\toutputs[\"A + B\"] = (inputs[\"A\"] or 0) + (inputs[\"B\"] or 0)"
+            ),
+            c_str!(""),
+            c_str!(""),
+        )
+        .ok()?;
+        let func = module.getattr("update").ok()?;
+        Some(func.into())
+    });
+
     let node = Node::new(
         Vector2::zero(),
         Vector2::new(150, 50, None),
@@ -23,14 +43,7 @@ fn add_ctor(
         Some(Color::new(30, 30, 30, 255)),
         Color::WHITE,
         None,
-        Some(Box::new(|node: &mut Node| {
-            let a = Node::read_typed_port::<f32>(node, "A", false);
-            let b = Node::read_typed_port::<f32>(node, "B", false);
-            if a.is_none() || b.is_none() {
-                return;
-            }
-            Node::write_typed_port::<f32>(node, "A + B", a.unwrap() + b.unwrap(), true);
-        })),
+        update_fn,
         Some(Box::new(
             |node: &Node, draw_handle: &mut RaylibDrawHandle<'_>, _: Camera| {
                 draw_handle.draw_rectangle(
@@ -57,9 +70,24 @@ fn add_ctor(
     Node::add_ports(
         &node,
         vec![
-            (Box::new(Port::<f32>::new(5, None)), "A", false),
-            (Box::new(Port::<f32>::new(35, None)), "B", false),
-            (Box::new(Port::<f32>::new(22, None)), "A + B", true),
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "A",
+                false,
+                5,
+            ),
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "B",
+                false,
+                35,
+            ),
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "A + B",
+                true,
+                22,
+            ),
         ],
     );
 
@@ -71,6 +99,20 @@ fn sub_ctor(
     translations: Rc<RefCell<Translations>>,
     language: Rc<RefCell<String>>,
 ) -> Rc<RefCell<Node>> {
+    let update_fn: Option<Py<PyAny>> = Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c_str!(
+                "def update():\n\toutputs[\"A - B\"] = (inputs[\"A\"] or 0) - (inputs[\"B\"] or 0)"
+            ),
+            c_str!(""),
+            c_str!(""),
+        )
+        .ok()?;
+        let func = module.getattr("update").ok()?;
+        Some(func.into())
+    });
+
     let node = Node::new(
         Vector2::zero(),
         Vector2::new(150, 50, None),
@@ -79,14 +121,7 @@ fn sub_ctor(
         Some(Color::new(30, 30, 30, 255)),
         Color::WHITE,
         None,
-        Some(Box::new(|node: &mut Node| {
-            let a = Node::read_typed_port::<f32>(node, "A", false);
-            let b = Node::read_typed_port::<f32>(node, "B", false);
-            if a.is_none() || b.is_none() {
-                return;
-            }
-            Node::write_typed_port::<f32>(node, "A - B", a.unwrap() - b.unwrap(), true);
-        })),
+        update_fn,
         Some(Box::new(
             |node: &Node, draw_handle: &mut RaylibDrawHandle<'_>, _: Camera| {
                 draw_handle.draw_rectangle(
@@ -106,9 +141,24 @@ fn sub_ctor(
     Node::add_ports(
         &node,
         vec![
-            (Box::new(Port::<f32>::new(5, None)), "A", false),
-            (Box::new(Port::<f32>::new(35, None)), "B", false),
-            (Box::new(Port::<f32>::new(22, None)), "A - B", true),
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "A",
+                false,
+                5,
+            ),
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "B",
+                false,
+                35,
+            ),
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "A - B",
+                true,
+                22,
+            ),
         ],
     );
 
@@ -120,6 +170,20 @@ fn div_ctor(
     translations: Rc<RefCell<Translations>>,
     language: Rc<RefCell<String>>,
 ) -> Rc<RefCell<Node>> {
+    let update_fn: Option<Py<PyAny>> = Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c_str!(
+                "def update():\n\toutputs[\"A / B\"] = (inputs[\"A\"] or 0) / (inputs[\"B\"] or 0)"
+            ),
+            c_str!(""),
+            c_str!(""),
+        )
+        .ok()?;
+        let func = module.getattr("update").ok()?;
+        Some(func.into())
+    });
+
     let node = Node::new(
         Vector2::zero(),
         Vector2::new(150, 50, None),
@@ -128,14 +192,7 @@ fn div_ctor(
         Some(Color::new(30, 30, 30, 255)),
         Color::WHITE,
         None,
-        Some(Box::new(|node: &mut Node| {
-            let a = Node::read_typed_port::<f32>(node, "A", false);
-            let b = Node::read_typed_port::<f32>(node, "B", false);
-            if a.is_none() || b.is_none() {
-                return;
-            }
-            Node::write_typed_port::<f32>(node, "A / B", a.unwrap() / b.unwrap(), true);
-        })),
+        update_fn,
         Some(Box::new(
             |node: &Node, draw_handle: &mut RaylibDrawHandle<'_>, _: Camera| {
                 draw_handle.draw_rectangle(
@@ -167,9 +224,24 @@ fn div_ctor(
     Node::add_ports(
         &node,
         vec![
-            (Box::new(Port::<f32>::new(5, None)), "A", false),
-            (Box::new(Port::<f32>::new(35, None)), "B", false),
-            (Box::new(Port::<f32>::new(22, None)), "A / B", true),
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "A",
+                false,
+                5,
+            ),
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "B",
+                false,
+                35,
+            ),
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "A / B",
+                true,
+                22,
+            ),
         ],
     );
 
@@ -181,6 +253,20 @@ fn mul_ctor(
     translations: Rc<RefCell<Translations>>,
     language: Rc<RefCell<String>>,
 ) -> Rc<RefCell<Node>> {
+    let update_fn: Option<Py<PyAny>> = Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c_str!(
+                "def update():\n\toutputs[\"A x B\"] = (inputs[\"A\"] or 0) * (inputs[\"B\"] or 0)"
+            ),
+            c_str!(""),
+            c_str!(""),
+        )
+        .ok()?;
+        let func = module.getattr("update").ok()?;
+        Some(func.into())
+    });
+
     let node = Node::new(
         Vector2::zero(),
         Vector2::new(150, 50, None),
@@ -189,14 +275,7 @@ fn mul_ctor(
         Some(Color::new(30, 30, 30, 255)),
         Color::WHITE,
         None,
-        Some(Box::new(|node: &mut Node| {
-            let a = Node::read_typed_port::<f32>(node, "A", false);
-            let b = Node::read_typed_port::<f32>(node, "B", false);
-            if a.is_none() || b.is_none() {
-                return;
-            }
-            Node::write_typed_port::<f32>(node, "A * B", a.unwrap() * b.unwrap(), true);
-        })),
+        update_fn,
         Some(Box::new(
             |node: &Node, draw_handle: &mut RaylibDrawHandle<'_>, _: Camera| {
                 draw_handle.draw_line_ex(
@@ -222,9 +301,24 @@ fn mul_ctor(
     Node::add_ports(
         &node,
         vec![
-            (Box::new(Port::<f32>::new(5, None)), "A", false),
-            (Box::new(Port::<f32>::new(35, None)), "B", false),
-            (Box::new(Port::<f32>::new(22, None)), "A x B", true),
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "A",
+                false,
+                5,
+            ),
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "B",
+                false,
+                35,
+            ),
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "A x B",
+                true,
+                22,
+            ),
         ],
     );
 
