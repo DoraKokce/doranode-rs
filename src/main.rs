@@ -1,105 +1,16 @@
-use std::{cell::RefCell, fs, rc::Rc};
+use crate::window::Window;
 
-use crate::{
-    node_libary::NodeLibary,
-    objects::{Camera, Object},
-    structs::Vector2,
-    translations::Translations,
-};
-use pyo3::{Python, types::PyInt};
-use raylib::prelude::*;
-
+mod colorscheme;
 mod node;
 mod node_libary;
 mod objects;
+mod settings;
 mod structs;
 mod translations;
-
-const TURKISH_ALPHABET: &str = " ABCDEFGHIİJKLMNOÖPRSŞTUÜVYZQWXYZabcdefghijklmnopqrstuvwxyzçğıöşüÇĞİÖŞÜ0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";
+mod window;
 
 fn main() {
-    let (mut rl_handle, thread) = raylib::init()
-        .size(640, 480)
-        .title("DoraNode beta test v1")
-        .build();
-
-    Python::initialize();
-
-    rl_handle.set_target_fps(120);
-    rl_handle.set_exit_key(None);
-
-    let roboto_font = Rc::new(
-        rl_handle
-            .load_font_ex(
-                &thread,
-                "resources/fonts/Roboto-Regular.ttf",
-                64,
-                Some(TURKISH_ALPHABET),
-            )
-            .expect("[-] Font yüklenemedi"),
-    );
-
-    let translations = Translations::new();
-    translations
-        .borrow_mut()
-        .load_from_file(
-            fs::read_to_string("resources/translations/turkish.json")
-                .expect("couldn't load translation"),
-            "turkish",
-        )
-        .load_from_file(
-            fs::read_to_string("resources/translations/english.json")
-                .expect("couldn't load translation"),
-            "english",
-        );
-    let language = Rc::new(RefCell::new("turkish".to_string()));
-
-    rl_handle.set_window_title(
-        &thread,
-        &translations
-            .borrow()
-            .get_gui_translation(&language.borrow(), "window.title"),
-    );
-
-    let node_lib = NodeLibary::insert_default_nodes();
-
-    let mut camera = Camera {
-        offset: Vector2::new(320, 240, None),
-        target: Vector2::zero(),
-        rotation: 0.0,
-        zoom: 1.0,
-    };
-
-    let node = node_lib
-        .generate(
-            "doranode:math.add",
-            roboto_font.clone(),
-            translations.clone(),
-            language.clone(),
-        )
-        .expect("cannot load add");
-
-    while !rl_handle.window_should_close() {
-        if rl_handle.is_window_resized() {
-            camera.offset = Vector2::new(
-                rl_handle.get_screen_width() / 2,
-                rl_handle.get_screen_height() / 2,
-                None,
-            );
-        }
-
-        Python::attach(|py| {
-            node.borrow_mut().write_port("A", PyInt::new(py, 1).into());
-            node.borrow_mut().write_port("B", PyInt::new(py, 1).into());
-            println!("{}", node.borrow().read_port("A + B", py).unwrap());
-        });
-
-        node.borrow_mut().update(&mut rl_handle, &thread, &camera);
-        let mut draw_handle = rl_handle.begin_drawing(&thread);
-        draw_handle.clear_background(Color::WHITE);
-        {
-            let mut mode_camera = draw_handle.begin_mode2D(Camera2D::from(camera.clone()));
-            node.borrow().draw(&mut mode_camera, &camera);
-        }
-    }
+    let mut window = Window::new();
+    let (rl_handle, rl_thread) = window.init();
+    window.run(rl_handle, rl_thread);
 }

@@ -1,14 +1,16 @@
 use std::ops::{Add, Div, Mul, Sub};
 
+use pyo3::{IntoPyObject, pyclass};
+
 #[derive(Debug, Clone)]
 pub struct Vector2 {
-    pub x: i32,
-    pub y: i32,
+    pub x: f32,
+    pub y: f32,
     pub origin: Option<Box<Vector2>>,
 }
 
 impl Vector2 {
-    pub fn new(x: i32, y: i32, origin: Option<Vector2>) -> Self {
+    pub fn new(x: f32, y: f32, origin: Option<Vector2>) -> Self {
         Self {
             x,
             y,
@@ -37,11 +39,11 @@ impl Vector2 {
     }
 
     pub fn zero() -> Self {
-        Self::new(0, 0, None)
+        Self::new(0.0, 0.0, None)
     }
 
     pub fn magnitude(&self) -> f32 {
-        f32::sqrt((self.x * self.x + self.y * self.y) as f32)
+        f32::sqrt((self.x * self.x + self.y * self.y))
     }
 }
 
@@ -88,8 +90,8 @@ impl Sub for Vector2 {
     }
 }
 
-impl Mul for Vector2 {
-    type Output = i32;
+impl Mul<Vector2> for Vector2 {
+    type Output = f32;
 
     fn mul(self, rhs: Vector2) -> Self::Output {
         let from = self.from_origin();
@@ -98,10 +100,37 @@ impl Mul for Vector2 {
     }
 }
 
+impl Mul<f32> for Vector2 {
+    type Output = Vector2;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        let from = self.from_origin();
+        Vector2::new(from.x * rhs, from.y * rhs, None)
+    }
+}
+
+impl Mul<Vector2> for f32 {
+    type Output = Vector2;
+
+    fn mul(self, rhs: Vector2) -> Self::Output {
+        let from = rhs.from_origin();
+        Vector2::new(from.x * self, from.y * self, None)
+    }
+}
+
 impl Div<i32> for Vector2 {
     type Output = Vector2;
 
     fn div(self, rhs: i32) -> Self::Output {
+        let from = self.from_origin();
+        Vector2::new(from.x / rhs as f32, from.y / rhs as f32, None)
+    }
+}
+
+impl Div<f32> for Vector2 {
+    type Output = Vector2;
+
+    fn div(self, rhs: f32) -> Self::Output {
         let from = self.from_origin();
         Vector2::new(from.x / rhs, from.y / rhs, None)
     }
@@ -110,45 +139,48 @@ impl Div<i32> for Vector2 {
 impl From<&Vector2> for raylib::prelude::Vector2 {
     fn from(v: &Vector2) -> Self {
         let v = v.from_origin();
-        raylib::prelude::Vector2 {
-            x: v.x as f32,
-            y: v.y as f32,
-        }
+        raylib::prelude::Vector2 { x: v.x, y: v.y }
     }
 }
 
 impl From<Vector2> for raylib::prelude::Vector2 {
     fn from(v: Vector2) -> Self {
         let v = v.from_origin();
-        raylib::prelude::Vector2 {
-            x: v.x as f32,
-            y: v.y as f32,
-        }
+        raylib::prelude::Vector2 { x: v.x, y: v.y }
     }
 }
 
 impl From<Vector2> for raylib::ffi::Vector2 {
     fn from(v: Vector2) -> Self {
         let v = v.from_origin();
-        raylib::ffi::Vector2 {
-            x: v.x as f32,
-            y: v.y as f32,
-        }
+        raylib::ffi::Vector2 { x: v.x, y: v.y }
     }
 }
 
 impl From<raylib::prelude::Vector2> for Vector2 {
     fn from(v: raylib::prelude::Vector2) -> Self {
         Self {
-            x: v.x as i32,
-            y: v.y as i32,
+            x: v.x,
+            y: v.y,
             origin: None,
         }
     }
 }
 
-impl Into<Vector2> for (i32, i32) {
-    fn into(self) -> Vector2 {
-        Vector2::new(self.0, self.1, None)
+impl From<(i32, i32)> for Vector2 {
+    fn from(value: (i32, i32)) -> Self {
+        Vector2::new(value.0 as f32, value.1 as f32, None)
+    }
+}
+
+impl From<(f32, f32)> for Vector2 {
+    fn from(value: (f32, f32)) -> Self {
+        Vector2::new(value.0, value.1, None)
+    }
+}
+
+impl From<[f32; 2]> for Vector2 {
+    fn from(value: [f32; 2]) -> Self {
+        Vector2::new(value[0], value[1], None)
     }
 }

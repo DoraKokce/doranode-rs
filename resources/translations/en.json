@@ -15,6 +15,18 @@
     "doranode:math.mul": {
       "title": "Multiplication",
       "description": "Multiplies input A to input B,"
+    },
+    "doranode:io.input_int": {
+      "title": "Integer Input",
+      "description": "Gets textbox input and converts it to a int type"
+    },
+    "doranode:io.input_float": {
+      "title": "Decimal Input",
+      "description": "Gets textbox input and converts it to a float type"
+    },
+    "doranode:io.output": {
+      "title": "Output",
+      "description": "Gets the input and shows it in the textbox"
     }
   },
   "gui": {

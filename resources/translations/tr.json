@@ -15,6 +15,18 @@
     "doranode:math.mul": {
       "title": "Çarpma",
       "description": "A girişi ile B girişini çarpar."
+    },
+    "doranode:io.input_int": {
+      "title": "Tamsayı Girişi",
+      "description": "Yazı kutusundaki girişi tamsayıya çevirir (int)"
+    },
+    "doranode:io.input_float": {
+      "title": "Ondalık Girişi",
+      "description": "Yazı kutusundaki girişi ondalıklı sayıya çevirir (float)"
+    },
+    "doranode:io.output": {
+      "title": "Çıkış",
+      "description": "Girişi yazı kutusunda gösterir"
     }
   },
   "gui": {

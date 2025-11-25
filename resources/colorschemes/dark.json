@@ -1,0 +1,16 @@
+{
+  "colors": {
+    "grid_background": "#1e1e1e",
+    "grid_square": "#505050",
+    "grid_big_square": "#c8c8c8",
+    "node_background": "#3c3c3c",
+    "node_border": "#1e1e1e",
+    "node_active_border": "#faa500",
+    "node_foreground": "#ffffff",
+    "node_component_background": "#505050",
+    "node_component_foreground": "#ffffff",
+    "node_component_active_background": "#505050",
+    "connection": "#ffa500",
+    "connection_pending": "#6a6a6b"
+  }
+}

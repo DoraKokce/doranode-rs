@@ -3,15 +3,24 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use raylib::prelude::*;
 
 use crate::{
+    colorscheme::ColorSchemes,
     node::{Node, Port},
     objects::Camera,
+    settings::Settings,
     structs::Vector2,
     translations::Translations,
 };
 
+mod io;
 mod math;
-pub type NodeCtor =
-    fn(Rc<Font>, Rc<RefCell<Translations>>, Rc<RefCell<String>>) -> Rc<RefCell<Node>>;
+
+pub type NodeCtor = fn(
+    Rc<RefCell<Font>>,
+    Rc<RefCell<Translations>>,
+    Rc<RefCell<ColorSchemes>>,
+    Rc<RefCell<Settings>>,
+    &'static str,
+) -> Rc<RefCell<Node>>;
 
 pub struct NodeLibary {
     nodes: HashMap<String, NodeCtor>,
@@ -31,19 +40,22 @@ impl NodeLibary {
     pub fn generate(
         &self,
         type_name: &str,
-        font: Rc<Font>,
+        font: Rc<RefCell<Font>>,
         translations: Rc<RefCell<Translations>>,
-        language: Rc<RefCell<String>>,
+        color_schemes: Rc<RefCell<ColorSchemes>>,
+        settings: Rc<RefCell<Settings>>,
+        id: &'static str,
     ) -> Option<Rc<RefCell<Node>>> {
         self.nodes
             .get(type_name)
-            .map(|f| f(font, translations, language))
+            .map(|f| f(font, translations, color_schemes, settings, id))
     }
 
     pub fn insert_default_nodes() -> Self {
         let mut libary = Self::new();
 
         math::insert(&mut libary);
+        io::insert(&mut libary);
 
         libary
     }

@@ -9,23 +9,27 @@ use pyo3::{
 use raylib::prelude::*;
 
 use crate::{
+    colorscheme::ColorSchemes,
     node::{Node, Port},
     node_libary::NodeLibary,
     objects::Camera,
+    settings::Settings,
     structs::Vector2,
     translations::Translations,
 };
 
 fn add_ctor(
-    font: Rc<Font>,
+    font: Rc<RefCell<Font>>,
     translations: Rc<RefCell<Translations>>,
-    language: Rc<RefCell<String>>,
+    color_schemes: Rc<RefCell<ColorSchemes>>,
+    settings: Rc<RefCell<Settings>>,
+    id: &'static str,
 ) -> Rc<RefCell<Node>> {
     let update_fn: Option<Py<PyAny>> = Python::attach(|py| {
         let module = PyModule::from_code(
             py,
             c_str!(
-                "def update(**kwargs):\n\toutputs = {}\n\toutputs[\"A + B\"] = (kwargs.get(\"inputs\")[\"A\"] or 0) + (kwargs.get(\"inputs\")[\"B\"] or 0)\n\treturn outputs"
+                "def update(**kwargs): return {\"A + B\": (kwargs[\"inputs\"][\"A\"] or 0) + (kwargs[\"inputs\"][\"B\"] or 0)}"
             ),
             c_str!(""),
             c_str!(""),
@@ -36,26 +40,22 @@ fn add_ctor(
 
     let node = Node::new(
         Vector2::zero(),
-        Vector2::new(150, 50, None),
+        Vector2::new(150.0, 50.0, None),
         font.clone(),
-        Color::new(60, 60, 60, 255),
-        Some(Color::new(30, 30, 30, 255)),
-        Color::WHITE,
-        None,
         update_fn,
         Some(Box::new(
             |node: &Node, draw_handle: &mut RaylibDrawHandle<'_>, _: Camera| {
                 draw_handle.draw_rectangle(
-                    node.size.y / 2 - 4,
+                    node.size.y as i32 / 2 - 4,
                     5,
                     8,
-                    node.size.y - 10,
+                    node.size.y as i32 - 10,
                     Color::new(100, 100, 100, 255),
                 );
                 draw_handle.draw_rectangle(
                     5,
-                    node.size.y / 2 - 4,
-                    node.size.y - 10,
+                    node.size.y as i32 / 2 - 4,
+                    node.size.y as i32 - 10,
                     8,
                     Color::new(100, 100, 100, 255),
                 );
@@ -63,7 +63,9 @@ fn add_ctor(
         )),
         "doranode:math.add",
         translations,
-        language,
+        color_schemes,
+        settings,
+        id,
     );
 
     Node::add_ports(
@@ -73,19 +75,19 @@ fn add_ctor(
                 Box::new(Port::new(Color::new(30, 30, 30, 255))),
                 "A",
                 false,
-                5,
+                13,
             ),
             (
                 Box::new(Port::new(Color::new(30, 30, 30, 255))),
                 "B",
                 false,
-                35,
+                38,
             ),
             (
                 Box::new(Port::new(Color::new(30, 30, 30, 255))),
                 "A + B",
                 true,
-                22,
+                25,
             ),
         ],
     );
@@ -94,15 +96,17 @@ fn add_ctor(
 }
 
 fn sub_ctor(
-    font: Rc<Font>,
+    font: Rc<RefCell<Font>>,
     translations: Rc<RefCell<Translations>>,
-    language: Rc<RefCell<String>>,
+    color_schemes: Rc<RefCell<ColorSchemes>>,
+    settings: Rc<RefCell<Settings>>,
+    id: &'static str,
 ) -> Rc<RefCell<Node>> {
     let update_fn: Option<Py<PyAny>> = Python::attach(|py| {
         let module = PyModule::from_code(
             py,
             c_str!(
-                "def update(**kwargs):\n\toutputs = {}\n\toutputs[\"A - B\"] = (kwargs.get(\"inputs\")[\"A\"] or 0) - (kwargs.get(\"inputs\")[\"B\"] or 0)\n\treturn outputs"
+                "def update(**kwargs): return {\"A - B\": (kwargs[\"inputs\"][\"A\"] or 0) - (kwargs[\"inputs\"][\"B\"] or 0)}"
             ),
             c_str!(""),
             c_str!(""),
@@ -114,19 +118,15 @@ fn sub_ctor(
 
     let node = Node::new(
         Vector2::zero(),
-        Vector2::new(150, 50, None),
+        Vector2::new(150.0, 50.0, None),
         font.clone(),
-        Color::new(60, 60, 60, 255),
-        Some(Color::new(30, 30, 30, 255)),
-        Color::WHITE,
-        None,
         update_fn,
         Some(Box::new(
             |node: &Node, draw_handle: &mut RaylibDrawHandle<'_>, _: Camera| {
                 draw_handle.draw_rectangle(
                     5,
-                    node.size.y / 2 - 4,
-                    node.size.y - 10,
+                    node.size.y as i32 / 2 - 4,
+                    node.size.y as i32 - 10,
                     8,
                     Color::new(100, 100, 100, 255),
                 );
@@ -134,7 +134,9 @@ fn sub_ctor(
         )),
         "doranode:math.sub",
         translations,
-        language,
+        color_schemes,
+        settings,
+        id,
     );
 
     Node::add_ports(
@@ -144,19 +146,19 @@ fn sub_ctor(
                 Box::new(Port::new(Color::new(30, 30, 30, 255))),
                 "A",
                 false,
-                5,
+                13,
             ),
             (
                 Box::new(Port::new(Color::new(30, 30, 30, 255))),
                 "B",
                 false,
-                35,
+                38,
             ),
             (
                 Box::new(Port::new(Color::new(30, 30, 30, 255))),
                 "A - B",
                 true,
-                22,
+                25,
             ),
         ],
     );
@@ -165,15 +167,17 @@ fn sub_ctor(
 }
 
 fn div_ctor(
-    font: Rc<Font>,
+    font: Rc<RefCell<Font>>,
     translations: Rc<RefCell<Translations>>,
-    language: Rc<RefCell<String>>,
+    color_schemes: Rc<RefCell<ColorSchemes>>,
+    settings: Rc<RefCell<Settings>>,
+    id: &'static str,
 ) -> Rc<RefCell<Node>> {
     let update_fn: Option<Py<PyAny>> = Python::attach(|py| {
         let module = PyModule::from_code(
             py,
             c_str!(
-                "def update(**kwargs):\n\toutputs = {}\n\toutputs[\"A / B\"] = (kwargs.get(\"inputs\")[\"A\"] or 0) / (kwargs.get(\"inputs\")[\"B\"] or 0)\n\treturn outputs"
+                "def update(**kwargs): return {\"A / B\": (kwargs[\"inputs\"][\"A\"] or 0) / (kwargs[\"inputs\"][\"B\"] or 0)}"
             ),
             c_str!(""),
             c_str!(""),
@@ -185,39 +189,37 @@ fn div_ctor(
 
     let node = Node::new(
         Vector2::zero(),
-        Vector2::new(150, 50, None),
+        Vector2::new(150.0, 50.0, None),
         font.clone(),
-        Color::new(60, 60, 60, 255),
-        Some(Color::new(30, 30, 30, 255)),
-        Color::WHITE,
-        None,
         update_fn,
         Some(Box::new(
             |node: &Node, draw_handle: &mut RaylibDrawHandle<'_>, _: Camera| {
                 draw_handle.draw_rectangle(
                     5,
-                    node.size.y / 2 - 4,
-                    node.size.y - 10,
+                    node.size.y as i32 / 2 - 4,
+                    node.size.y as i32 - 10,
                     8,
                     Color::new(100, 100, 100, 255),
                 );
                 draw_handle.draw_circle(
-                    5 + (node.size.y - 10) / 2,
+                    5 + (node.size.y as i32 - 10) / 2,
                     8,
-                    6.0,
+                    60.0,
                     Color::new(100, 100, 100, 255),
                 );
                 draw_handle.draw_circle(
-                    5 + (node.size.y - 10) / 2,
-                    node.size.y - 10,
-                    6.0,
+                    5 + (node.size.y as i32 - 10) / 2,
+                    node.size.y as i32 - 10,
+                    60.0,
                     Color::new(100, 100, 100, 255),
                 );
             },
         )),
         "doranode:math.div",
         translations,
-        language,
+        color_schemes,
+        settings,
+        id,
     );
 
     Node::add_ports(
@@ -227,19 +229,19 @@ fn div_ctor(
                 Box::new(Port::new(Color::new(30, 30, 30, 255))),
                 "A",
                 false,
-                5,
+                13,
             ),
             (
                 Box::new(Port::new(Color::new(30, 30, 30, 255))),
                 "B",
                 false,
-                35,
+                38,
             ),
             (
                 Box::new(Port::new(Color::new(30, 30, 30, 255))),
                 "A / B",
                 true,
-                22,
+                25,
             ),
         ],
     );
@@ -248,15 +250,17 @@ fn div_ctor(
 }
 
 fn mul_ctor(
-    font: Rc<Font>,
+    font: Rc<RefCell<Font>>,
     translations: Rc<RefCell<Translations>>,
-    language: Rc<RefCell<String>>,
+    color_schemes: Rc<RefCell<ColorSchemes>>,
+    settings: Rc<RefCell<Settings>>,
+    id: &'static str,
 ) -> Rc<RefCell<Node>> {
     let update_fn: Option<Py<PyAny>> = Python::attach(|py| {
         let module = PyModule::from_code(
             py,
             c_str!(
-                "def update(**kwargs):\n\toutputs = {}\n\toutputs[\"A x B\"] = (kwargs.get(\"inputs\")[\"A\"] or 0) * (kwargs.get(\"inputs\")[\"B\"] or 0)\n\treturn outputs"
+                "def update(**kwargs): return {\"A * B\": (kwargs[\"inputs\"][\"A\"] or 0) * (kwargs[\"inputs\"][\"B\"] or 0)}"
             ),
             c_str!(""),
             c_str!(""),
@@ -268,25 +272,21 @@ fn mul_ctor(
 
     let node = Node::new(
         Vector2::zero(),
-        Vector2::new(150, 50, None),
+        Vector2::new(150.0, 50.0, None),
         font.clone(),
-        Color::new(60, 60, 60, 255),
-        Some(Color::new(30, 30, 30, 255)),
-        Color::WHITE,
-        None,
         update_fn,
         Some(Box::new(
             |node: &Node, draw_handle: &mut RaylibDrawHandle<'_>, _: Camera| {
                 draw_handle.draw_line_ex(
-                    Vector2::new(5 + node.size.y - 10, 5, None),
-                    Vector2::new(5, 5 + node.size.y - 10, None),
-                    8.0,
+                    Vector2::new(5.0 + node.size.y - 10.0, 5.0, None),
+                    Vector2::new(5.0, 5.0 + node.size.y - 10.0, None),
+                    80.0,
                     Color::new(100, 100, 100, 255),
                 );
 
                 draw_handle.draw_line_ex(
-                    Vector2::new(5, 5, None),
-                    Vector2::new(5 + node.size.y - 10, 5 + node.size.y - 10, None),
+                    Vector2::new(5.0, 5.0, None),
+                    Vector2::new(5.0 + node.size.y - 10.0, 5.0 + node.size.y - 10.0, None),
                     8.0,
                     Color::new(100, 100, 100, 255),
                 );
@@ -294,7 +294,9 @@ fn mul_ctor(
         )),
         "doranode:math.mul",
         translations,
-        language,
+        color_schemes,
+        settings,
+        id,
     );
 
     Node::add_ports(
@@ -304,19 +306,19 @@ fn mul_ctor(
                 Box::new(Port::new(Color::new(30, 30, 30, 255))),
                 "A",
                 false,
-                5,
+                13,
             ),
             (
                 Box::new(Port::new(Color::new(30, 30, 30, 255))),
                 "B",
                 false,
-                35,
+                38,
             ),
             (
                 Box::new(Port::new(Color::new(30, 30, 30, 255))),
                 "A x B",
                 true,
-                22,
+                25,
             ),
         ],
     );
