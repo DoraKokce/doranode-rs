@@ -11,6 +11,7 @@
     "node_component_foreground": "#ffffff",
     "node_component_active_background": "#505050",
     "connection": "#ffa500",
-    "connection_pending": "#6a6a6b"
+    "connection_pending": "#6a6a6b",
+    "node_selector_background": "#505050"
   }
 }

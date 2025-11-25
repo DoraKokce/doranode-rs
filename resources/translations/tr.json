@@ -1,7 +1,7 @@
 {
   "nodes": {
     "doranode:math.add": {
-      "title": "Ekleme",
+      "title": "Toplama",
       "description": "A girişi ile B girişini toplar."
     },
     "doranode:math.sub": {
@@ -16,6 +16,14 @@
       "title": "Çarpma",
       "description": "A girişi ile B girişini çarpar."
     },
+    "doranode:math.sqrt": {
+      "title": "Karekök",
+      "description": "A girişinin karekökünü hesaplar."
+    },
+    "doranode:math": {
+      "title": "Matematik",
+      "description": "Matematiksel işlemler için düğümler"
+    },
     "doranode:io.input_int": {
       "title": "Tamsayı Girişi",
       "description": "Yazı kutusundaki girişi tamsayıya çevirir (int)"
@@ -24,9 +32,17 @@
       "title": "Ondalık Girişi",
       "description": "Yazı kutusundaki girişi ondalıklı sayıya çevirir (float)"
     },
+    "doranode:io.input_str": {
+      "title": "Yazı Girişi",
+      "description": "Yazı kutusundaki girişi yazıya çevirir (string)"
+    },
     "doranode:io.output": {
       "title": "Çıkış",
       "description": "Girişi yazı kutusunda gösterir"
+    },
+    "doranode:io": {
+      "title": "Giriş / Çıkış",
+      "description": "Kullanıcıdan girdi almak ve çıktı göstermek için düğümler"
     }
   },
   "gui": {

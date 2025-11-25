@@ -183,9 +183,9 @@ pub struct Node {
     pub update_fn: Option<Py<PyAny>>,
     pub draw_fn: Option<Box<dyn Fn(&Node, &mut RaylibDrawHandle, Camera) + 'static>>,
     pub type_name: &'static str,
-    pub id: &'static str,
-    translations: Rc<RefCell<Translations>>,
-    color_schemes: Rc<RefCell<ColorSchemes>>,
+    pub id: String,
+    pub translations: Rc<RefCell<Translations>>,
+    pub color_schemes: Rc<RefCell<ColorSchemes>>,
     pub settings: Rc<RefCell<Settings>>,
     pub z: i32,
 }
@@ -250,7 +250,7 @@ impl Object for Node {
                         let mut state = state.borrow_mut();
                         if *is_output {
                             state.dragging_from = Some(port.clone());
-                        } else if state.dragging_from.is_some() {
+                        } else if !*is_output {
                             state.dragging_to = Some(port.clone());
                         } else {
                             state.dragging_from = None;
@@ -515,7 +515,7 @@ impl Node {
         translations: Rc<RefCell<Translations>>,
         color_schemes: Rc<RefCell<ColorSchemes>>,
         settings: Rc<RefCell<Settings>>,
-        id: &'static str,
+        id: String,
     ) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             positon: position,

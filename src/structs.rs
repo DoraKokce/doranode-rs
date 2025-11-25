@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use pyo3::{IntoPyObject, pyclass};
 
@@ -133,6 +133,15 @@ impl Div<f32> for Vector2 {
     fn div(self, rhs: f32) -> Self::Output {
         let from = self.from_origin();
         Vector2::new(from.x / rhs, from.y / rhs, None)
+    }
+}
+
+impl Neg for Vector2 {
+    type Output = Vector2;
+
+    fn neg(self) -> Self::Output {
+        let from = self.from_origin();
+        Vector2::new(-from.x, -from.y, None)
     }
 }
 

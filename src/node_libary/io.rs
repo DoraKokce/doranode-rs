@@ -26,13 +26,13 @@ fn input_int_ctor(
     translations: Rc<RefCell<Translations>>,
     color_schemes: Rc<RefCell<ColorSchemes>>,
     settings: Rc<RefCell<Settings>>,
-    id: &'static str,
+    id: String,
 ) -> Rc<RefCell<Node>> {
     let update_fn: Option<Py<PyAny>> = Python::attach(|py| {
         let module = PyModule::from_code(
             py,
             c_str!(
-                "def update(**kwargs): return {\"\": int(kwargs[\"components\"][\"textbox\"].get_property(\"text\") or \"0\") or 0}"
+                 "def update(**kwargs):\n\ttry: return {\"\": int(kwargs[\"components\"][\"textbox\"].get_property(\"text\") or \"0.0\")}\n\texcept ValueError: return {\"\": 0.0}"
             ),
             c_str!(""),
             c_str!(""),
@@ -60,7 +60,7 @@ fn input_int_ctor(
         "textbox".to_string(),
         Box::new(TextBox::new(
             Vector2::zero(),
-            Vector2::new(145.0, 45.0, None),
+            Vector2::new(150.0, 50.0, None),
             Color::new(80, 80, 80, 255),
             Color::new(80, 80, 80, 255),
             Color::WHITE,
@@ -70,7 +70,7 @@ fn input_int_ctor(
             true,
             false,
             None,
-            Some(vec!['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']),
+            Some(vec!['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-']),
             1,
         )),
     );
@@ -91,7 +91,7 @@ fn input_str_ctor(
     translations: Rc<RefCell<Translations>>,
     color_schemes: Rc<RefCell<ColorSchemes>>,
     settings: Rc<RefCell<Settings>>,
-    id: &'static str,
+    id: String,
 ) -> Rc<RefCell<Node>> {
     let update_fn: Option<Py<PyAny>> = Python::attach(|py| {
         let module = PyModule::from_code(
@@ -109,7 +109,7 @@ fn input_str_ctor(
 
     let node = Node::new(
         Vector2::zero(),
-        Vector2::new(145.0, 45.0, None),
+        Vector2::new(150.0, 50.0, None),
         font.clone(),
         update_fn,
         None,
@@ -156,13 +156,13 @@ fn input_float_ctor(
     translations: Rc<RefCell<Translations>>,
     color_schemes: Rc<RefCell<ColorSchemes>>,
     settings: Rc<RefCell<Settings>>,
-    id: &'static str,
+    id: String,
 ) -> Rc<RefCell<Node>> {
     let update_fn: Option<Py<PyAny>> = Python::attach(|py| {
         let module = PyModule::from_code(
             py,
             c_str!(
-                "def update(**kwargs):\n\ttry: return {\"\": float(kwargs[\"components\"][\"textbox\"].get_property(\"text\") or \"00.0\")}\n\texcept ValueError: return {\"\": 00.0}"
+                "def update(**kwargs):\n\ttry: return {\"\": float(kwargs[\"components\"][\"textbox\"].get_property(\"text\") or \"0.0\")}\n\texcept ValueError: return {\"\": 0.0}"
             ),
             c_str!(""),
             c_str!(""),
@@ -174,7 +174,7 @@ fn input_float_ctor(
 
     let node = Node::new(
         Vector2::zero(),
-        Vector2::new(145.0, 45.0, None),
+        Vector2::new(150.0, 50.0, None),
         font.clone(),
         update_fn,
         None,
@@ -200,7 +200,9 @@ fn input_float_ctor(
             true,
             false,
             None,
-            Some(vec!['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.']),
+            Some(vec![
+                '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.', '-',
+            ]),
             1,
         )),
     );
@@ -221,7 +223,7 @@ fn output_ctor(
     translations: Rc<RefCell<Translations>>,
     color_schemes: Rc<RefCell<ColorSchemes>>,
     settings: Rc<RefCell<Settings>>,
-    id: &'static str,
+    id: String,
 ) -> Rc<RefCell<Node>> {
     let update_fn: Option<Py<PyAny>> = Python::attach(|py| {
         let module = PyModule::from_code(
@@ -239,7 +241,7 @@ fn output_ctor(
 
     let node = Node::new(
         Vector2::zero(),
-        Vector2::new(145.0, 45.0, None),
+        Vector2::new(150.0, 50.0, None),
         font.clone(),
         update_fn,
         None,

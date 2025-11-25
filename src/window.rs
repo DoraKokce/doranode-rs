@@ -1,11 +1,17 @@
 use pyo3::{ffi::c_str, prelude::*};
 use raylib::prelude::*;
-use raylib_sys::SetTextureFilter;
-use std::{cell::RefCell, collections::HashMap, fs, rc::Rc};
+use raylib_sys::{LoadImage, SetTextureFilter};
+use std::{
+    cell::{Ref, RefCell},
+    collections::HashMap,
+    fs,
+    rc::Rc,
+};
 
 use crate::{
     colorscheme::ColorSchemes,
     node::{Connection, Node, Port},
+    node_gui,
     node_libary::NodeLibary,
     objects::{Camera, ComboBox, Grid, Object},
     settings::Settings,
@@ -17,6 +23,8 @@ pub struct EditorState {
     pub dragging_from: Option<Rc<RefCell<Box<Port>>>>,
     pub dragging_to: Option<Rc<RefCell<Box<Port>>>>,
     pub connections: HashMap<String, Connection>,
+    pub node_names: HashMap<String, Vec<usize>>,
+    pub selected_module: Option<String>,
 }
 
 thread_local! {
@@ -24,6 +32,8 @@ thread_local! {
         dragging_from: None,
         dragging_to: None,
         connections: HashMap::new(),
+        node_names: HashMap::new(),
+        selected_module: None,
     });
 }
 
@@ -38,9 +48,11 @@ pub struct Window {
     pub dragging: bool,
     pub last_mouse: Vector2,
     pub node_active: bool,
+    pub lib: Rc<RefCell<NodeLibary>>,
+    pub node_selector: Option<node_gui::NodeSelector>,
 }
 
-const TURKISH_ALPHABET: &str = " ABCDEFGHIİJKLMNOÖPRSŞTUÜVYZQWXYZabcdefghijklmnopqrstuvwxyzçğıöşüÇĞİÖŞÜ0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";
+const TURKISH_ALPHABET: &str = " ABCDEFGHIİJKLMNOÖPRSŞTUÜVYZQWXYZabcdefghijklmnopqrstuvwxyzçğıöşüÇĞİÖŞÜ0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~√";
 
 impl Window {
     pub fn new() -> Self {
@@ -60,6 +72,8 @@ impl Window {
             dragging: false,
             last_mouse: Vector2::zero(),
             node_active: false,
+            lib: Rc::new(RefCell::new(NodeLibary::insert_default_nodes())),
+            node_selector: None,
         }
     }
 
@@ -77,6 +91,11 @@ impl Window {
                 .get_gui_translation(&self.settings.borrow().language, "window.title"),
         );
 
+        let logo = raylib::prelude::Image::load_image("resources/images/logo.png")
+            .expect("logo yüklenemedi");
+        rl_handle.set_window_icon(logo);
+        rl_handle.set_exit_key(None);
+
         self.load_fonts(&mut rl_handle, &rl_thread);
 
         self.active_font = Some(self.fonts.get("Roboto-Regular").unwrap().clone());
@@ -89,7 +108,10 @@ impl Window {
                 background_color: Color::new(40, 40, 40, 255),
                 big_square_color: Some(Color::new(80, 80, 80, 255)),
                 big_square_size: Some(Vector2::new(4.0, 4.0, None)),
-                position: Vector2::new(-1400.0, -1400.0, None),
+                position: -Vector2::from((
+                    settings.grid_size[0] * settings.grid_square_size[0] / 2.0,
+                    settings.grid_size[1] * settings.grid_square_size[1] / 2.0,
+                )),
                 size: settings.grid_size.clone().into(),
                 square_color: Color::new(64, 64, 64, 255),
                 square_size: settings.grid_square_size.clone().into(),
@@ -97,59 +119,13 @@ impl Window {
             })),
         );
 
-        let lib = NodeLibary::insert_default_nodes();
-
-        self.objects.insert(
-            "output".to_string(),
-            lib.generate(
-                "doranode:io.output",
-                self.active_font.clone().unwrap(),
-                self.translations.clone(),
-                self.color_schemes.clone(),
-                self.settings.clone(),
-                "output",
-            )
-            .unwrap(),
-        );
-
-        self.objects.insert(
-            "input_float".to_string(),
-            lib.generate(
-                "doranode:io.input_float",
-                self.active_font.clone().unwrap(),
-                self.translations.clone(),
-                self.color_schemes.clone(),
-                self.settings.clone(),
-                "input_float",
-            )
-            .unwrap(),
-        );
-
-        self.objects.insert(
-            "input_float2".to_string(),
-            lib.generate(
-                "doranode:io.input_float",
-                self.active_font.clone().unwrap(),
-                self.translations.clone(),
-                self.color_schemes.clone(),
-                self.settings.clone(),
-                "input_float2",
-            )
-            .unwrap(),
-        );
-
-        self.objects.insert(
-            "add".to_string(),
-            lib.generate(
-                "doranode:math.add",
-                self.active_font.clone().unwrap(),
-                self.translations.clone(),
-                self.color_schemes.clone(),
-                self.settings.clone(),
-                "add",
-            )
-            .unwrap(),
-        );
+        self.node_selector = Some(node_gui::NodeSelector::new(
+            self.lib.clone(),
+            self.active_font.clone().unwrap(),
+            self.color_schemes.clone(),
+            self.settings.clone(),
+            self.translations.clone(),
+        ));
 
         (rl_handle, rl_thread)
     }
@@ -178,18 +154,59 @@ impl Window {
             self.dragging = true;
             self.last_mouse = mouse.clone();
         }
-        if rl.is_mouse_button_released(MouseButton::MOUSE_BUTTON_LEFT) {
-            self.dragging = false;
-        }
 
         EDITOR_STATE.with(|state| {
             let mut state = state.borrow_mut();
-            let dragging_from_is_none = state.dragging_from.is_none();
 
-            if self.dragging && !self.node_active && dragging_from_is_none {
+            if self.dragging
+                && !self.node_active
+                && state.dragging_from.is_none()
+                && state.dragging_to.is_none()
+                && state.selected_module.is_none()
+            {
                 let delta = mouse.clone() - self.last_mouse.clone();
                 cam.target = cam.target.clone() - (delta / cam.zoom).into();
                 self.last_mouse = mouse.clone();
+            }
+
+            if rl.is_mouse_button_released(MouseButton::MOUSE_BUTTON_LEFT) {
+                self.dragging = false;
+                if let Some(module) = state.selected_module.clone() {
+                    let mut list = state
+                        .node_names
+                        .entry(module.clone())
+                        .or_insert_with(Vec::new);
+
+                    let next_index = if list.is_empty() {
+                        1
+                    } else {
+                        Window::missing_numbers(list)
+                            .first()
+                            .cloned()
+                            .unwrap_or_else(|| list.iter().max().cloned().unwrap() + 1)
+                    };
+
+                    let id = format!("{}{}", module, next_index);
+
+                    if let Some(node) = self.lib.borrow().generate(
+                        &module,
+                        self.active_font.clone().unwrap(),
+                        self.translations.clone(),
+                        self.color_schemes.clone(),
+                        self.settings.clone(),
+                        id.clone(),
+                    ) {
+                        let mouse_world: Vector2 =
+                            rl.get_screen_to_world2D(mouse.clone(), &cam.clone()).into();
+                        node.borrow_mut().positon = mouse_world;
+
+                        self.objects.insert(id.clone(), node.clone());
+
+                        list.push(next_index);
+                    }
+
+                    state.selected_module = None;
+                }
             }
 
             if let (Some(from), Some(to)) = (state.dragging_from.clone(), state.dragging_to.clone())
@@ -205,7 +222,7 @@ impl Window {
                 let mut to_remove: Vec<String> = vec![];
 
                 for connection_name in state.connections.keys() {
-                    if *connection_name == name {
+                    if *connection_name == name || from_name == to_name {
                         state.dragging_from = None;
                         state.dragging_to = None;
                         return;
@@ -251,13 +268,13 @@ impl Window {
         let grid_square_size: Vector2 = settings.grid_square_size.into();
         let screen_size: Vector2 = (rl.get_screen_width(), rl.get_screen_height()).into();
         let world_min = Vector2::new(
-            -grid_size.x / 2.0 * grid_square_size.x,
-            -grid_size.y / 2.0 * grid_square_size.y,
+            (-grid_size.x / 2.0) * grid_square_size.x,
+            (-grid_size.y / 2.0) * grid_square_size.y,
             None,
         );
         let world_max = Vector2::new(
-            grid_size.x / 2.0 * grid_square_size.x,
-            grid_size.y / 2.0 * grid_square_size.y,
+            (grid_size.x / 2.0) * grid_square_size.x,
+            (grid_size.y / 2.0) * grid_square_size.y,
             None,
         );
         let half_screen = Vector2::new(screen_size.x / 2.0, screen_size.y / 2.0, None) / cam.zoom;
@@ -274,6 +291,10 @@ impl Window {
 
         let mut active_index: Option<usize> = None;
         let mut to_remove: Vec<String> = vec![];
+
+        if let Some(selector) = &mut self.node_selector {
+            selector.update(rl, thread, &cam);
+        }
 
         for (i, (key, obj)) in self.objects.iter().enumerate() {
             let mut obj_mut = obj.borrow_mut();
@@ -296,6 +317,19 @@ impl Window {
                 active_index = Some(i);
                 if rl.is_key_pressed(KeyboardKey::KEY_DELETE) {
                     to_remove.push(key.clone());
+                    EDITOR_STATE.with(|state| {
+                        let mut state = state.borrow_mut();
+                        let mut to_remove: Vec<String> = vec![];
+                        for (connection, _) in &mut state.connections {
+                            if connection.contains(format!("({}(", node.id).as_str()) {
+                                to_remove.push(connection.clone());
+                            }
+                        }
+
+                        for remove in to_remove {
+                            state.connections.remove(&remove);
+                        }
+                    })
                 }
             } else if let Some(connection) = obj_mut.as_any_mut().downcast_mut::<Connection>() {
                 let from_pos = connection.from.borrow().position.clone();
@@ -400,6 +434,10 @@ impl Window {
                     );
                 }
             });
+        }
+
+        if let Some(selector) = &self.node_selector {
+            selector.draw(&mut d, &self.camera.borrow());
         }
     }
 

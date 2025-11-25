@@ -16,6 +16,14 @@
       "title": "Multiplication",
       "description": "Multiplies input A to input B,"
     },
+    "doranode:math.sqrt": {
+      "title": "Square Root",
+      "description": "Calculates the square root of input A."
+    },
+    "doranode:math": {
+      "title": "Math",
+      "description": "Nodes for mathematical operations"
+    },
     "doranode:io.input_int": {
       "title": "Integer Input",
       "description": "Gets textbox input and converts it to a int type"
@@ -24,9 +32,17 @@
       "title": "Decimal Input",
       "description": "Gets textbox input and converts it to a float type"
     },
+    "doranode:io.input_str": {
+      "title": "String Input",
+      "description": "Gets textbox input and converts it to a string type"
+    },
     "doranode:io.output": {
       "title": "Output",
       "description": "Gets the input and shows it in the textbox"
+    },
+    "doranode:io": {
+      "title": "Input / Output",
+      "description": "Nodes for getting input from user and showing output"
     }
   },
   "gui": {

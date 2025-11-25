@@ -1,5 +1,5 @@
-language  = "tr"
+language  = "en"
 scheme    = "dark"
 font      = "Roboto-Regular"
-grid_size = [140, 140]
+grid_size = [280, 280]
 grid_square_size = [20, 20]

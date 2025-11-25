@@ -2,6 +2,7 @@ use crate::window::Window;
 
 mod colorscheme;
 mod node;
+mod node_gui;
 mod node_libary;
 mod objects;
 mod settings;
