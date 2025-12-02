@@ -13,11 +13,17 @@ pub struct NodeSave {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct CameraSave {
+    pub position: [f32; 2],
+    pub zoom: f32,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct SaveFile {
     pub project_name: String,
     pub nodes: Vec<NodeSave>,
     pub connections: Vec<String>,
-    pub camera_pos: [f32; 2],
+    pub camera: CameraSave,
 }
 
 impl SaveFile {
@@ -26,7 +32,10 @@ impl SaveFile {
             project_name,
             nodes: Vec::new(),
             connections: Vec::new(),
-            camera_pos: [0.0, 0.0],
+            camera: CameraSave {
+                position: [0.0, 0.0],
+                zoom: 1.0,
+            },
         }
     }
 
@@ -34,13 +43,13 @@ impl SaveFile {
         project_name: String,
         nodes: Vec<NodeSave>,
         connections: Vec<String>,
-        camera_pos: [f32; 2],
+        camera: CameraSave,
     ) -> Self {
         SaveFile {
             project_name,
             nodes,
             connections,
-            camera_pos,
+            camera,
         }
     }
 

@@ -9,7 +9,7 @@ use crate::{
     node::{Connection, Node, Port},
     node_libary::NodeLibary,
     objects::{Camera, Grid, Object},
-    save::{NodeSave, SaveFile},
+    save::{CameraSave, NodeSave, SaveFile},
     settings::Settings,
     structs::Vector2,
     translations::Translations,
@@ -433,7 +433,9 @@ impl Window {
                             state.node_names.clear();
                             state.project_name = "untitled".to_string();
                             self.objects.retain(|name, _| name == "grid");
-                            self.camera.borrow_mut().target = Vector2::zero();
+                            let mut cam = self.camera.borrow_mut();
+                            cam.target = Vector2::zero();
+                            cam.zoom = 1.0;
                         }
                         "file.new_save" => {
                             if !self.save_file_with_state(&mut state, self.camera.borrow().clone())
@@ -444,7 +446,9 @@ impl Window {
                             state.node_names.clear();
                             state.project_name = "untitled".to_string();
                             self.objects.retain(|name, _| name == "grid");
-                            self.camera.borrow_mut().target = Vector2::zero();
+                            let mut cam = self.camera.borrow_mut();
+                            cam.target = Vector2::zero();
+                            cam.zoom = 1.0;
                         }
                         _ => {}
                     }
@@ -732,8 +736,13 @@ impl Window {
             state.project_name.clone(),
             nodes,
             state.connections.keys().cloned().collect(),
-            cam.target.clone().into(),
+            CameraSave {
+                position: cam.target.clone().into(),
+                zoom: cam.zoom,
+            },
         ));
+
+        drop(cam);
 
         if let Some(save) = &state.save_file {
             save.write()
@@ -814,7 +823,10 @@ impl Window {
             }
         }
 
-        self.camera.borrow_mut().target = save.camera_pos.into();
+        let mut cam = self.camera.borrow_mut();
+
+        cam.target = save.camera.position.into();
+        cam.zoom = save.camera.zoom;
     }
 
     pub fn find_port(
