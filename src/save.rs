@@ -52,7 +52,7 @@ impl SaveFile {
             .pick_file()
         {
             let content = fs::read_to_string(&path).expect("Dosya okunamadı");
-            Some(serde_json::from_str::<SaveFile>(&content).expect("Failed to parse save file"))
+            serde_json::from_str::<SaveFile>(&content).ok()
         } else {
             None
         }
@@ -60,7 +60,7 @@ impl SaveFile {
 
     pub fn from_file(path: &str) -> Option<Self> {
         let content = fs::read_to_string(&path).expect("Dosya okunamadı");
-        Some(serde_json::from_str::<SaveFile>(&content).expect("Failed to parse save file"))
+        serde_json::from_str::<SaveFile>(&content).ok()
     }
 
     pub fn write(&self) -> bool {

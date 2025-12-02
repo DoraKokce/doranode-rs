@@ -344,7 +344,7 @@ impl Window {
                 for ev in events {
                     match ev.as_str() {
                         "save_file" => {
-                            self.save_file();
+                            self.save_file(cam.clone());
                         }
                         "open_file" => self.open_file(),
                         "new_file" => self.new_file(),
@@ -421,7 +421,7 @@ impl Window {
                             }
                         }
                         "file.open_save" => {
-                            if !self.save_file() {
+                            if !self.save_file(self.camera.borrow().clone()) {
                                 return;
                             }
                             if let Some(save) = SaveFile::read() {
@@ -436,7 +436,8 @@ impl Window {
                             self.camera.borrow_mut().target = Vector2::zero();
                         }
                         "file.new_save" => {
-                            if !self.save_file_with_state(&mut state) {
+                            if !self.save_file_with_state(&mut state, self.camera.borrow().clone())
+                            {
                                 return;
                             }
                             state.connections.clear();
@@ -697,11 +698,11 @@ impl Window {
         }
     }
 
-    fn save_file(&self) -> bool {
-        EDITOR_STATE.with(|state| self.save_file_with_state(&mut state.borrow_mut()))
+    fn save_file(&self, cam: Camera) -> bool {
+        EDITOR_STATE.with(|state| self.save_file_with_state(&mut state.borrow_mut(), cam))
     }
 
-    fn save_file_with_state(&self, state: &mut EditorState) -> bool {
+    fn save_file_with_state(&self, state: &mut EditorState, cam: Camera) -> bool {
         let nodes: Vec<NodeSave> = self
             .objects
             .iter()
@@ -731,7 +732,7 @@ impl Window {
             state.project_name.clone(),
             nodes,
             state.connections.keys().cloned().collect(),
-            self.camera.borrow().target.clone().into(),
+            cam.target.clone().into(),
         ));
 
         if let Some(save) = &state.save_file {
