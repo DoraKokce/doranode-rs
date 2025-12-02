@@ -433,6 +433,7 @@ impl Window {
                             state.node_names.clear();
                             state.project_name = "untitled".to_string();
                             self.objects.retain(|name, _| name == "grid");
+                            self.camera.borrow_mut().target = Vector2::zero();
                         }
                         "file.new_save" => {
                             if !self.save_file_with_state(&mut state) {
@@ -442,6 +443,7 @@ impl Window {
                             state.node_names.clear();
                             state.project_name = "untitled".to_string();
                             self.objects.retain(|name, _| name == "grid");
+                            self.camera.borrow_mut().target = Vector2::zero();
                         }
                         _ => {}
                     }
