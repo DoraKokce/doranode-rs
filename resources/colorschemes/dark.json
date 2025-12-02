@@ -12,6 +12,15 @@
     "node_component_active_background": "#505050",
     "connection": "#ffa500",
     "connection_pending": "#6a6a6b",
-    "node_selector_background": "#505050"
+    "node_selector_background": "#505050",
+    "topbar_background": "#2d2d2d",
+    "topbar_button_background": "#3c3c3c",
+    "topbar_button_background_expanded": "#4a4a4a",
+    "topbar_foreground": "#ffffff",
+    "dialog_background": "#2d2d2d",
+    "dialog_foreground": "#ffffff",
+    "dialog_border": "#3c3c3c",
+    "dialog_button_background": "#3c3c3c",
+    "dialog_button_foreground": "#ffffff"
   }
 }

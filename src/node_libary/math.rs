@@ -24,6 +24,8 @@ pub fn insert(libary: &mut NodeLibary) {
     libary.insert("doranode:math.div", div_ctor);
     libary.insert("doranode:math.mul", mul_ctor);
     libary.insert("doranode:math.sqrt", sqrt_ctor);
+    libary.insert("doranode:math.nthroot", nthroot_ctor);
+    libary.insert("doranode:math.pow", pow_ctor);
 }
 
 fn add_ctor(
@@ -60,7 +62,7 @@ fn add_ctor(
                     node.size.y as i32 - 10,
                     node.color_schemes
                         .borrow()
-                        .get_color(&node.settings.borrow().scheme, "node_foreground")
+                        .get_color(&node.settings.borrow().scheme, "node_component_background")
                         .unwrap(),
                 );
                 draw_handle.draw_rectangle(
@@ -70,7 +72,7 @@ fn add_ctor(
                     8,
                     node.color_schemes
                         .borrow()
-                        .get_color(&node.settings.borrow().scheme, "node_foreground")
+                        .get_color(&node.settings.borrow().scheme, "node_component_background")
                         .unwrap(),
                 );
             },
@@ -80,6 +82,7 @@ fn add_ctor(
         color_schemes,
         settings,
         id,
+        false,
     );
 
     Node::add_ports(
@@ -144,7 +147,7 @@ fn sub_ctor(
                     8,
                     node.color_schemes
                         .borrow()
-                        .get_color(&node.settings.borrow().scheme, "node_foreground")
+                        .get_color(&node.settings.borrow().scheme, "node_component_background")
                         .unwrap(),
                 );
             },
@@ -154,6 +157,7 @@ fn sub_ctor(
         color_schemes,
         settings,
         id,
+        false,
     );
 
     Node::add_ports(
@@ -218,7 +222,7 @@ fn div_ctor(
                     8,
                     node.color_schemes
                         .borrow()
-                        .get_color(&node.settings.borrow().scheme, "node_foreground")
+                        .get_color(&node.settings.borrow().scheme, "node_component_background")
                         .unwrap(),
                 );
                 draw_handle.draw_circle(
@@ -227,7 +231,7 @@ fn div_ctor(
                     6.0,
                     node.color_schemes
                         .borrow()
-                        .get_color(&node.settings.borrow().scheme, "node_foreground")
+                        .get_color(&node.settings.borrow().scheme, "node_component_background")
                         .unwrap(),
                 );
                 draw_handle.draw_circle(
@@ -236,7 +240,7 @@ fn div_ctor(
                     6.0,
                     node.color_schemes
                         .borrow()
-                        .get_color(&node.settings.borrow().scheme, "node_foreground")
+                        .get_color(&node.settings.borrow().scheme, "node_component_background")
                         .unwrap(),
                 );
             },
@@ -246,6 +250,7 @@ fn div_ctor(
         color_schemes,
         settings,
         id,
+        false,
     );
 
     Node::add_ports(
@@ -286,7 +291,7 @@ fn mul_ctor(
         let module = PyModule::from_code(
             py,
             c_str!(
-                "def update(**kwargs): return {\"A * B\": (kwargs[\"inputs\"][\"A\"] or 0) * (kwargs[\"inputs\"][\"B\"] or 0)}"
+                "def update(**kwargs): return {\"A x B\": (float(kwargs[\"inputs\"][\"A\"] or \"0.0\") or 0.0) * (float(kwargs[\"inputs\"][\"B\"] or \"0.0\") or 0.0)}"
             ),
             c_str!(""),
             c_str!(""),
@@ -309,7 +314,7 @@ fn mul_ctor(
                     8.0,
                     node.color_schemes
                         .borrow()
-                        .get_color(&node.settings.borrow().scheme, "node_foreground")
+                        .get_color(&node.settings.borrow().scheme, "node_component_background")
                         .unwrap(),
                 );
 
@@ -319,7 +324,7 @@ fn mul_ctor(
                     8.0,
                     node.color_schemes
                         .borrow()
-                        .get_color(&node.settings.borrow().scheme, "node_foreground")
+                        .get_color(&node.settings.borrow().scheme, "node_component_background")
                         .unwrap(),
                 );
             },
@@ -329,6 +334,7 @@ fn mul_ctor(
         color_schemes,
         settings,
         id,
+        false,
     );
 
     Node::add_ports(
@@ -358,7 +364,7 @@ fn mul_ctor(
     node
 }
 
-fn sqrt_ctor(
+fn nthroot_ctor(
     font: Rc<RefCell<Font>>,
     translations: Rc<RefCell<Translations>>,
     color_schemes: Rc<RefCell<ColorSchemes>>,
@@ -369,7 +375,7 @@ fn sqrt_ctor(
         let module = PyModule::from_code(
             py,
             c_str!(
-                "def update(**kwargs): return {\"√A\": (kwargs[\"inputs\"][\"A\"] or 0) ** 0.5}"
+                "def update(**kwargs): return {\"B√ A\": (float(kwargs[\"inputs\"][\"A\"] or \"0.0\") or 0.0) ** (1.0 / (float(kwargs[\"inputs\"][\"B\"] or \"2.0\") or 2.0))}"
             ),
             c_str!(""),
             c_str!(""),
@@ -394,7 +400,83 @@ fn sqrt_ctor(
                     1.0,
                     node.color_schemes
                         .borrow()
-                        .get_color(&node.settings.borrow().scheme, "node_foreground")
+                        .get_color(&node.settings.borrow().scheme, "node_component_background")
+                        .unwrap(),
+                );
+            },
+        )),
+        "doranode:math.nthroot",
+        translations,
+        color_schemes,
+        settings,
+        id,
+        false,
+    );
+
+    Node::add_ports(
+        &node,
+        vec![
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "A",
+                false,
+                13,
+            ),
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "B",
+                false,
+                38,
+            ),
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "B√ A",
+                true,
+                25,
+            ),
+        ],
+    );
+
+    node
+}
+
+fn sqrt_ctor(
+    font: Rc<RefCell<Font>>,
+    translations: Rc<RefCell<Translations>>,
+    color_schemes: Rc<RefCell<ColorSchemes>>,
+    settings: Rc<RefCell<Settings>>,
+    id: String,
+) -> Rc<RefCell<Node>> {
+    let update_fn: Option<Py<PyAny>> = Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c_str!(
+                "def update(**kwargs): return {\"√A\": (float(kwargs[\"inputs\"][\"A\"] or \"0.0\") or 0.0) ** 0.5}"
+            ),
+            c_str!(""),
+            c_str!(""),
+        )
+        .ok()?;
+        let func = module.getattr("update").ok()?;
+        Some(func.into())
+    });
+
+    let node = Node::new(
+        Vector2::zero(),
+        Vector2::new(150.0, 50.0, None),
+        font.clone(),
+        update_fn,
+        Some(Box::new(
+            |node: &Node, draw_handle: &mut RaylibDrawHandle<'_>, _: Camera| {
+                draw_handle.draw_text_ex(
+                    &*node.font.borrow(),
+                    "√",
+                    Vector2::new(25.0, -5.0, None),
+                    60.0,
+                    1.0,
+                    node.color_schemes
+                        .borrow()
+                        .get_color(&node.settings.borrow().scheme, "node_component_background")
                         .unwrap(),
                 );
             },
@@ -404,6 +486,7 @@ fn sqrt_ctor(
         color_schemes,
         settings,
         id,
+        false,
     );
 
     Node::add_ports(
@@ -418,6 +501,93 @@ fn sqrt_ctor(
             (
                 Box::new(Port::new(Color::new(30, 30, 30, 255))),
                 "√A",
+                true,
+                25,
+            ),
+        ],
+    );
+
+    node
+}
+
+fn pow_ctor(
+    font: Rc<RefCell<Font>>,
+    translations: Rc<RefCell<Translations>>,
+    color_schemes: Rc<RefCell<ColorSchemes>>,
+    settings: Rc<RefCell<Settings>>,
+    id: String,
+) -> Rc<RefCell<Node>> {
+    let update_fn: Option<Py<PyAny>> = Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c_str!(
+                "def update(**kwargs): return { \"A ^ B\": float(kwargs[\"inputs\"][\"A\"] or 0) ** float(kwargs[\"inputs\"][\"B\"] or 0) }"
+            ),
+            c_str!(""),
+            c_str!(""),
+        )
+        .ok()?;
+        let func = module.getattr("update").ok()?;
+        Some(func.into())
+    });
+
+    let node = Node::new(
+        Vector2::zero(),
+        Vector2::new(150.0, 50.0, None),
+        font.clone(),
+        update_fn,
+        Some(Box::new(
+            |node: &Node, draw_handle: &mut RaylibDrawHandle<'_>, _: Camera| {
+                draw_handle.draw_text_ex(
+                    &*node.font.borrow(),
+                    "A",
+                    Vector2::new(25.0, 5.0, None),
+                    45.0,
+                    1.0,
+                    node.color_schemes
+                        .borrow()
+                        .get_color(&node.settings.borrow().scheme, "node_component_background")
+                        .unwrap(),
+                );
+                draw_handle.draw_text_ex(
+                    &*node.font.borrow(),
+                    "B",
+                    Vector2::new(45.0, 0.0, None),
+                    25.0,
+                    1.0,
+                    node.color_schemes
+                        .borrow()
+                        .get_color(&node.settings.borrow().scheme, "node_component_background")
+                        .unwrap(),
+                );
+            },
+        )),
+        "doranode:math.pow",
+        translations,
+        color_schemes,
+        settings,
+        id,
+        false,
+    );
+
+    Node::add_ports(
+        &node,
+        vec![
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "A",
+                false,
+                13,
+            ),
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "B",
+                false,
+                38,
+            ),
+            (
+                Box::new(Port::new(Color::new(30, 30, 30, 255))),
+                "A ^ B",
                 true,
                 25,
             ),

@@ -53,6 +53,7 @@ fn input_int_ctor(
         color_schemes,
         settings,
         id,
+        false,
     );
 
     Node::add_component(
@@ -73,6 +74,7 @@ fn input_int_ctor(
             Some(vec!['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-']),
             1,
         )),
+        None,
     );
 
     Node::add_port(
@@ -97,7 +99,7 @@ fn input_str_ctor(
         let module = PyModule::from_code(
             py,
             c_str!(
-                "def update(**kwargs): return {\"\": kwargs[\"components\"][\"textbox\"].get_property(\"text\") or \"0\"}"
+                "def update(**kwargs): return {\"\": kwargs[\"components\"][\"textbox\"].get_property(\"text\") or \"\"}"
             ),
             c_str!(""),
             c_str!(""),
@@ -118,6 +120,7 @@ fn input_str_ctor(
         color_schemes,
         settings,
         id,
+        false,
     );
 
     Node::add_component(
@@ -138,6 +141,7 @@ fn input_str_ctor(
             None,
             1,
         )),
+        None,
     );
 
     Node::add_port(
@@ -183,6 +187,7 @@ fn input_float_ctor(
         color_schemes,
         settings,
         id,
+        false,
     );
 
     Node::add_component(
@@ -205,6 +210,7 @@ fn input_float_ctor(
             ]),
             1,
         )),
+        None,
     );
 
     Node::add_port(
@@ -229,7 +235,7 @@ fn output_ctor(
         let module = PyModule::from_code(
             py,
             c_str!(
-                "def update(**kwargs): kwargs[\"components\"][\"textbox\"].set_property(\"text\", str(kwargs[\"inputs\"][\"\"]))"
+                "def update(**kwargs):\n\tkwargs[\"components\"][\"textbox\"].set_property(\"text\", str(kwargs[\"inputs\"][\"\"]))\n\treturn {}"
             ),
             c_str!(""),
             c_str!(""),
@@ -250,6 +256,7 @@ fn output_ctor(
         color_schemes,
         settings,
         id,
+        true,
     );
 
     Node::add_component(
@@ -257,7 +264,7 @@ fn output_ctor(
         "textbox".to_string(),
         Box::new(TextBox::new(
             Vector2::zero(),
-            Vector2::new(150.0, 50.0, None),
+            Vector2::new(0.0, 0.0, None),
             Color::new(80, 80, 80, 255),
             Color::new(80, 80, 80, 255),
             Color::WHITE,
@@ -265,11 +272,12 @@ fn output_ctor(
             None,
             font.clone(),
             false,
-            false,
-            None,
+            true,
+            Some(Vector2::new(150.0, 50.0, None)),
             None,
             1,
         )),
+        None,
     );
 
     Node::add_port(

@@ -1,10 +1,15 @@
-use std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+    any::Any,
+    cell::RefCell,
+    collections::HashMap,
+    f32,
+    rc::{Rc, Weak},
+};
 
 use pyo3::{
     PyAny,
-    ffi::c_str,
     prelude::*,
-    types::{IntoPyDict, PyDict, PyTuple},
+    types::{PyDict, PyTuple},
 };
 use raylib::prelude::*;
 use raylib_sys::{CheckCollisionPointRec, rlPopMatrix, rlPushMatrix, rlTranslatef};
@@ -23,7 +28,7 @@ pub struct Port {
     pub position: Vector2,
     border_color: Color,
     pub parent_id: String,
-    pub id: usize,
+    pub label: String,
 }
 
 impl Object for Port {
@@ -92,7 +97,7 @@ impl Port {
             position: Vector2::zero(),
             border_color,
             parent_id: "".to_string(),
-            id: 0,
+            label: "".to_string(),
         })
     }
 
@@ -112,7 +117,7 @@ pub struct Connection {
 }
 
 impl Object for Connection {
-    fn update(&mut self, rl: &mut RaylibHandle, _: &RaylibThread, cam: &Camera) {
+    fn update(&mut self, rl: &mut RaylibHandle, _: &RaylibThread, _: &Camera) {
         let from = self.from.borrow();
         let mut to = self.to.borrow_mut();
 
@@ -171,9 +176,9 @@ impl Object for Connection {
 }
 
 pub struct Node {
-    pub positon: Vector2,
+    pub position: Vector2,
     pub size: Vector2,
-    pub components: HashMap<String, Rc<RefCell<Box<dyn Object>>>>,
+    pub components: HashMap<String, (Vector2, Rc<RefCell<Box<dyn Object>>>)>,
     pub ports: Vec<(String, bool, i32, Rc<RefCell<Box<Port>>>)>,
     mouse_offset: Option<Vector2>,
     pub active: bool,
@@ -187,6 +192,8 @@ pub struct Node {
     pub translations: Rc<RefCell<Translations>>,
     pub color_schemes: Rc<RefCell<ColorSchemes>>,
     pub settings: Rc<RefCell<Settings>>,
+    pub rc_self: Option<Weak<RefCell<Node>>>,
+    pub scalable: bool,
     pub z: i32,
 }
 
@@ -195,32 +202,37 @@ impl Object for Node {
         let mouse_pos =
             Vector2::from(rl_handle.get_screen_to_world2D(rl_handle.get_mouse_position(), camera));
         let rect = raylib_sys::Rectangle {
-            x: self.positon.x,
-            y: self.positon.y - self.title_height - 2.0,
+            x: self.position.x,
+            y: self.position.y - self.title_height - 2.0,
             width: self.size.x,
             height: self.size.y + 2.0,
         };
 
-        let origin = self.positon.from_origin() + Vector2::new(5.0, 5.0, None);
-        for (_, component) in &mut self.components {
-            component
-                .borrow_mut()
-                .set_property("position".to_string(), Box::new(origin.clone()));
+        let origin = self.position.from_origin() + Vector2::new(5.0, 5.0, None);
+        for (_, (offset, component)) in &mut self.components {
+            component.borrow_mut().set_property(
+                "position".to_string(),
+                Box::new(origin.clone() + offset.clone()),
+            );
             component.borrow_mut().update(rl_handle, rl_thread, camera);
         }
 
         /* Drag and drop */
-        if rl_handle.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) {
+        if rl_handle.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT)
+            || rl_handle.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_RIGHT)
+        {
             if unsafe { CheckCollisionPointRec(mouse_pos.clone().into(), rect) } {
                 self.active = true;
-                self.mouse_offset = Some(mouse_pos.clone() - self.positon.clone());
+                self.mouse_offset = Some(mouse_pos.clone() - self.position.clone());
             }
         }
 
-        if rl_handle.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT) {
+        if rl_handle.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT)
+            || rl_handle.is_mouse_button_down(MouseButton::MOUSE_BUTTON_RIGHT)
+        {
             if self.active {
                 if let Some(offset) = self.mouse_offset.clone() {
-                    self.positon = mouse_pos.clone() - offset;
+                    self.position = mouse_pos.clone() - offset;
                 }
             }
         } else {
@@ -228,10 +240,10 @@ impl Object for Node {
             self.mouse_offset = None;
         }
 
-        for (i, (_, is_output, y_offset, port)) in self.ports.iter().enumerate() {
+        for (i, (label, is_output, y_offset, port)) in self.ports.iter().enumerate() {
             let port_position = Vector2::new(
-                self.positon.x + if *is_output { self.size.x } else { 0.0 },
-                self.positon.y + *y_offset as f32,
+                self.position.x + if *is_output { self.size.x } else { 0.0 },
+                self.position.y + *y_offset as f32,
                 None,
             );
 
@@ -239,22 +251,19 @@ impl Object for Node {
                 let mut port_borrow = port.borrow_mut();
                 port_borrow.set_property("position".to_string(), Box::new(port_position.clone()));
                 port_borrow.parent_id = self.id.to_string();
-                port_borrow.id = i;
+                port_borrow.label = label.clone();
             }
 
             if (port_position.clone() - mouse_pos.clone()).magnitude() <= 6.0 {
                 self.active = false;
 
-                if rl_handle.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) {
+                if rl_handle.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT) {
                     EDITOR_STATE.with(|state| {
                         let mut state = state.borrow_mut();
-                        if *is_output {
+                        if *is_output && state.dragging_from.is_none() {
                             state.dragging_from = Some(port.clone());
                         } else if !*is_output {
                             state.dragging_to = Some(port.clone());
-                        } else {
-                            state.dragging_from = None;
-                            state.dragging_to = None;
                         }
                     });
                 }
@@ -266,8 +275,8 @@ impl Object for Node {
                 let inputs = self.get_inputs_py_dict(py);
 
                 let kwargs = PyDict::new(py);
-                kwargs.set_item("inputs", &inputs);
-                kwargs.set_item("components", self.get_components_py_dict(py));
+                kwargs.set_item("inputs", &inputs)?;
+                kwargs.set_item("components", self.get_components_py_dict(py))?;
 
                 let outputs: HashMap<String, Py<PyAny>> = update_fn
                     .call(py, PyTuple::empty(py), Some(&kwargs))
@@ -285,12 +294,14 @@ impl Object for Node {
             });
             self.update_fn = Some(update_fn);
         }
+
+        self.fit_around_components();
     }
 
     fn draw(&self, draw_handle: &mut RaylibDrawHandle, camera: &Camera) {
         let rect = Rectangle::new(
-            self.positon.x,
-            self.positon.y - self.title_height,
+            self.position.x,
+            self.position.y - self.title_height,
             self.size.x,
             self.size.y + self.title_height,
         );
@@ -328,8 +339,8 @@ impl Object for Node {
 
         /* Draw Title */
         draw_handle.draw_line_ex(
-            self.positon.clone(),
-            self.positon.clone() + Vector2::new(self.size.x, 0.0, None),
+            self.position.clone(),
+            self.position.clone() + Vector2::new(self.size.x, 0.0, None),
             3.0,
             if self.active {
                 active_border_color
@@ -346,8 +357,8 @@ impl Object for Node {
         let text_size = self.title_height - 2.0;
         let text_spacing = self.font.borrow().measure_text(&title, text_size, 1.0);
         let text_pos = Vector2::new(
-            self.positon.x + (self.size.x - text_spacing.x) / 2.0,
-            self.positon.y - self.title_height + (self.title_height - text_spacing.y) / 2.0,
+            self.position.x + (self.size.x - text_spacing.x) / 2.0,
+            self.position.y - self.title_height + (self.title_height - text_spacing.y) / 2.0,
             None,
         );
         draw_handle.draw_text_ex(
@@ -363,10 +374,10 @@ impl Object for Node {
         if let Some(draw_fn) = &self.draw_fn {
             unsafe {
                 rlPushMatrix();
-                rlTranslatef(self.positon.x, self.positon.y + 2.0, 0.0);
+                rlTranslatef(self.position.x, self.position.y + 2.0, 0.0);
             }
 
-            let screen_pos = draw_handle.get_world_to_screen2D(self.positon.clone(), camera);
+            let screen_pos = draw_handle.get_world_to_screen2D(self.position.clone(), camera);
             draw_handle.draw_scissor_mode(
                 screen_pos.x as i32,
                 screen_pos.y as i32,
@@ -383,15 +394,15 @@ impl Object for Node {
         }
 
         /* Draw Components */
-        let screen_pos =
-            draw_handle.get_world_to_screen2D(self.positon.clone(), Camera2D::from(camera.clone()));
+        let screen_pos = draw_handle
+            .get_world_to_screen2D(self.position.clone(), Camera2D::from(camera.clone()));
         draw_handle.draw_scissor_mode(
             screen_pos.x as i32 + 5,
             screen_pos.y as i32 + 5,
             ((self.size.x - 10.0) * camera.zoom) as i32,
             ((self.size.y - 10.0) * camera.zoom) as i32,
             |mut scissor| {
-                for (_, component) in &self.components {
+                for (_, (_, component)) in &self.components {
                     let mut comp = component.borrow_mut();
                     comp.set_property(
                         "background_color".to_string(),
@@ -454,7 +465,7 @@ impl Object for Node {
         match key.as_str() {
             "position" => {
                 if let Ok(v) = value.downcast::<Vector2>() {
-                    self.positon = *v;
+                    self.position = *v;
                 }
             }
             "size" => {
@@ -483,10 +494,13 @@ impl Object for Node {
 
     fn get_property(&self, key: String) -> Box<dyn Any + 'static> {
         match key.as_str() {
-            "position" => Box::new(self.positon.clone()),
+            "position" => Box::new(self.position.clone()),
             "size" => Box::new(self.size.clone()),
             "active" => Box::new(self.active),
             "roundness" => Box::new(self.roundness),
+            "id" => Box::new(self.id.clone()),
+            "type_name" => Box::new(self.type_name.to_string()),
+            "ports" => Box::new(self.ports.clone()),
             "z" => Box::new(self.z),
             _ => {
                 eprintln!("get_property: bilinmeyen anahtar '{}'", key);
@@ -516,14 +530,15 @@ impl Node {
         color_schemes: Rc<RefCell<ColorSchemes>>,
         settings: Rc<RefCell<Settings>>,
         id: String,
+        scalable: bool,
     ) -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(Self {
-            positon: position,
+        let node = Rc::new(RefCell::new(Node {
+            position,
             size,
             components: HashMap::new(),
             active: false,
             roundness: 0.2,
-            font: font,
+            font,
             title_height: 24.0,
             mouse_offset: None,
             update_fn,
@@ -534,12 +549,16 @@ impl Node {
             translations,
             color_schemes,
             settings,
+            scalable,
+            rc_self: None,
             z: 0,
-        }))
-    }
+        }));
 
-    pub fn as_rc(&self) -> Rc<RefCell<Box<&Self>>> {
-        Rc::new(RefCell::new(Box::new(self)))
+        {
+            node.borrow_mut().rc_self = Some(Rc::downgrade(&node));
+        }
+
+        node
     }
 
     pub fn add_port(
@@ -563,24 +582,25 @@ impl Node {
         }
     }
 
-    pub fn add_component(this: &Rc<RefCell<Self>>, label: String, component: Box<dyn Object>) {
-        this.borrow_mut()
-            .components
-            .insert(label, Rc::new(RefCell::new(component)));
+    pub fn add_component(
+        this: &Rc<RefCell<Self>>,
+        label: String,
+        component: Box<dyn Object>,
+        offset: Option<Vector2>,
+    ) {
+        this.borrow_mut().components.insert(
+            label,
+            (
+                offset.unwrap_or(Vector2::zero()),
+                Rc::new(RefCell::new(component)),
+            ),
+        );
     }
 
     pub fn get_inputs(&self) -> Vec<(String, &Rc<RefCell<Box<Port>>>)> {
         self.ports
             .iter()
             .filter(|(_, is_output, _, _)| !*is_output)
-            .map(|(label, _, _, port)| (label.clone(), port))
-            .collect()
-    }
-
-    pub fn get_outputs(&self) -> Vec<(String, &Rc<RefCell<Box<Port>>>)> {
-        self.ports
-            .iter()
-            .filter(|(_, is_output, _, _)| *is_output)
             .map(|(label, _, _, port)| (label.clone(), port))
             .collect()
     }
@@ -600,7 +620,7 @@ impl Node {
     pub fn get_components_py_dict(&self, py: Python) -> Py<PyDict> {
         let dict = PyDict::new(py);
 
-        for (label, component) in &self.components {
+        for (label, (_offset, component)) in &self.components {
             dict.set_item(label, PyObjectWrapper::new(component.clone()))
                 .unwrap();
         }
@@ -621,13 +641,34 @@ impl Node {
             .find(|(l, _, _, _)| l == label)
             .map(|(_, _, _, port)| port.borrow().read(py))
     }
+
+    pub fn fit_around_components(&mut self) {
+        if !self.scalable {
+            return;
+        }
+        let mut max_x: f32 = 0.0;
+        let mut max_y: f32 = 0.0;
+        for (offset, component) in self.components.values() {
+            let comp_size = component
+                .borrow()
+                .get_property("size".to_string())
+                .downcast::<Vector2>()
+                .unwrap();
+
+            max_x = max_x.max(offset.x + comp_size.x + 5.0);
+            max_y = max_y.max(offset.y + comp_size.y + 5.0);
+        }
+
+        self.size.x = max_x;
+        self.size.y = max_y;
+    }
 }
 
 impl Into<Rectangle> for Node {
     fn into(self) -> Rectangle {
         Rectangle {
-            x: self.positon.x,
-            y: self.positon.y,
+            x: self.position.x,
+            y: self.position.y,
             width: self.size.x,
             height: self.size.y,
         }
@@ -640,7 +681,7 @@ impl Into<objects::Rectangle> for Node {
             background_color: Color::WHITE,
             border_color: None,
             border_thickness: Some(3.0),
-            position: self.positon,
+            position: self.position,
             size: self.size,
             z: self.z,
         }
@@ -653,7 +694,7 @@ impl Into<objects::RoundedRectangle> for Node {
             background_color: Color::WHITE,
             border_color: None,
             border_thickness: Some(3),
-            position: self.positon,
+            position: self.position,
             roundness: self.roundness,
             size: self.size,
             z: self.z,

@@ -1,19 +1,15 @@
-use pyo3::{ffi::c_str, prelude::*};
+use pyo3::prelude::*;
 use raylib::prelude::*;
-use raylib_sys::{LoadImage, SetTextureFilter};
-use std::{
-    cell::{Ref, RefCell},
-    collections::HashMap,
-    fs,
-    rc::Rc,
-};
+use raylib_sys::SetTextureFilter;
+use std::{cell::RefCell, collections::HashMap, fs, rc::Rc};
 
 use crate::{
     colorscheme::ColorSchemes,
+    gui::{self, Dialog, DialogButton, ToolBarItem},
     node::{Connection, Node, Port},
-    node_gui,
     node_libary::NodeLibary,
-    objects::{Camera, ComboBox, Grid, Object},
+    objects::{Camera, Grid, Object},
+    save::{NodeSave, SaveFile},
     settings::Settings,
     structs::Vector2,
     translations::Translations,
@@ -25,6 +21,9 @@ pub struct EditorState {
     pub connections: HashMap<String, Connection>,
     pub node_names: HashMap<String, Vec<usize>>,
     pub selected_module: Option<String>,
+    pub dialog: Option<Dialog>,
+    pub save_file: Option<SaveFile>,
+    pub project_name: String,
 }
 
 thread_local! {
@@ -34,9 +33,11 @@ thread_local! {
         connections: HashMap::new(),
         node_names: HashMap::new(),
         selected_module: None,
+        dialog: None,
+        save_file: None,
+        project_name: "untitled".to_string(),
     });
 }
-
 pub struct Window {
     pub fonts: HashMap<String, Rc<RefCell<Font>>>,
     pub active_font: Option<Rc<RefCell<Font>>>,
@@ -49,7 +50,8 @@ pub struct Window {
     pub last_mouse: Vector2,
     pub node_active: bool,
     pub lib: Rc<RefCell<NodeLibary>>,
-    pub node_selector: Option<node_gui::NodeSelector>,
+    pub node_selector: Option<gui::NodeSelector>,
+    pub tool_bar: Option<gui::ToolBar>,
 }
 
 const TURKISH_ALPHABET: &str = " ABCDEFGHIİJKLMNOÖPRSŞTUÜVYZQWXYZabcdefghijklmnopqrstuvwxyzçğıöşüÇĞİÖŞÜ0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~√";
@@ -74,6 +76,7 @@ impl Window {
             node_active: false,
             lib: Rc::new(RefCell::new(NodeLibary::insert_default_nodes())),
             node_selector: None,
+            tool_bar: None,
         }
     }
 
@@ -82,7 +85,7 @@ impl Window {
         self.load_translations();
         self.load_schemes();
 
-        let (mut rl_handle, rl_thread) = raylib::init().size(640, 480).build();
+        let (mut rl_handle, rl_thread) = raylib::init().size(960, 720).resizable().build();
         rl_handle.set_window_title(
             &rl_thread,
             &self
@@ -95,37 +98,56 @@ impl Window {
             .expect("logo yüklenemedi");
         rl_handle.set_window_icon(logo);
         rl_handle.set_exit_key(None);
+        rl_handle.set_target_fps(60);
 
         self.load_fonts(&mut rl_handle, &rl_thread);
 
         self.active_font = Some(self.fonts.get("Roboto-Regular").unwrap().clone());
 
-        let settings = self.settings.borrow();
+        self.objects.insert("grid".to_string(), self.get_grid());
 
-        self.objects.insert(
-            "grid".to_string(),
-            Rc::new(RefCell::new(Grid {
-                background_color: Color::new(40, 40, 40, 255),
-                big_square_color: Some(Color::new(80, 80, 80, 255)),
-                big_square_size: Some(Vector2::new(4.0, 4.0, None)),
-                position: -Vector2::from((
-                    settings.grid_size[0] * settings.grid_square_size[0] / 2.0,
-                    settings.grid_size[1] * settings.grid_square_size[1] / 2.0,
-                )),
-                size: settings.grid_size.clone().into(),
-                square_color: Color::new(64, 64, 64, 255),
-                square_size: settings.grid_square_size.clone().into(),
-                z: -100,
-            })),
-        );
-
-        self.node_selector = Some(node_gui::NodeSelector::new(
+        self.node_selector = Some(gui::NodeSelector::new(
             self.lib.clone(),
             self.active_font.clone().unwrap(),
             self.color_schemes.clone(),
             self.settings.clone(),
             self.translations.clone(),
         ));
+
+        let mut tool_bar = gui::ToolBar::new(
+            self.color_schemes.clone(),
+            self.settings.clone(),
+            self.active_font.clone().unwrap(),
+            self.translations.clone(),
+        );
+
+        tool_bar.add_item(ToolBarItem {
+            label: "file".to_string(),
+            children: vec![
+                ToolBarItem {
+                    label: "new".to_string(),
+                    on_click: Some("new_file".to_string()),
+                    children: vec![],
+                    expanded: false,
+                },
+                ToolBarItem {
+                    label: "open".to_string(),
+                    on_click: Some("open_file".to_string()),
+                    children: vec![],
+                    expanded: false,
+                },
+                ToolBarItem {
+                    label: "save".to_string(),
+                    on_click: Some("save_file".to_string()),
+                    children: vec![],
+                    expanded: false,
+                },
+            ],
+            on_click: None,
+            expanded: false,
+        });
+
+        self.tool_bar = Some(tool_bar);
 
         (rl_handle, rl_thread)
     }
@@ -155,14 +177,15 @@ impl Window {
             self.last_mouse = mouse.clone();
         }
 
-        EDITOR_STATE.with(|state| {
-            let mut state = state.borrow_mut();
+        EDITOR_STATE.with(|editor_state| {
+            let mut state = editor_state.borrow_mut();
 
             if self.dragging
                 && !self.node_active
                 && state.dragging_from.is_none()
                 && state.dragging_to.is_none()
                 && state.selected_module.is_none()
+                && state.dialog.is_none()
             {
                 let delta = mouse.clone() - self.last_mouse.clone();
                 cam.target = cam.target.clone() - (delta / cam.zoom).into();
@@ -172,7 +195,7 @@ impl Window {
             if rl.is_mouse_button_released(MouseButton::MOUSE_BUTTON_LEFT) {
                 self.dragging = false;
                 if let Some(module) = state.selected_module.clone() {
-                    let mut list = state
+                    let list = state
                         .node_names
                         .entry(module.clone())
                         .or_insert_with(Vec::new);
@@ -198,7 +221,7 @@ impl Window {
                     ) {
                         let mouse_world: Vector2 =
                             rl.get_screen_to_world2D(mouse.clone(), &cam.clone()).into();
-                        node.borrow_mut().positon = mouse_world;
+                        node.borrow_mut().position = mouse_world;
 
                         self.objects.insert(id.clone(), node.clone());
 
@@ -207,46 +230,64 @@ impl Window {
 
                     state.selected_module = None;
                 }
-            }
 
-            if let (Some(from), Some(to)) = (state.dragging_from.clone(), state.dragging_to.clone())
-            {
-                let from_name = from.borrow().parent_id.clone();
-                let from_id = from.borrow().id;
-                let to_name = to.borrow().parent_id.clone();
-                let to_id = to.borrow().id;
-                let namefrom = format!("({}({}))", from_name, from_id);
-                let nameto = format!("({}({}))", to_name, to_id);
-                let name = namefrom.clone() + &nameto;
+                if let (Some(from), Some(to)) =
+                    (state.dragging_from.clone(), state.dragging_to.clone())
+                {
+                    let from_name = from.borrow().parent_id.clone();
+                    let from_id = from.borrow().label.clone();
+                    let to_name = to.borrow().parent_id.clone();
+                    let to_id = to.borrow().label.clone();
+                    let namefrom = format!("(({}):(\"{}\"))", from_name, from_id);
+                    let nameto = format!("(({}):(\"{}\"))", to_name, to_id);
+                    let name = namefrom.clone() + &nameto;
 
-                let mut to_remove: Vec<String> = vec![];
+                    let mut to_remove: Vec<String> = vec![];
 
-                for connection_name in state.connections.keys() {
-                    if *connection_name == name || from_name == to_name {
-                        state.dragging_from = None;
-                        state.dragging_to = None;
-                        return;
+                    for (connection_name, _) in state.connections.iter() {
+                        if *connection_name == name || from_name == to_name {
+                            state.dragging_from = None;
+                            state.dragging_to = None;
+                            return;
+                        }
+                        if connection_name.ends_with(&nameto) {
+                            to_remove.push(connection_name.clone());
+                        }
                     }
-                    if connection_name.ends_with(&nameto) {
-                        to_remove.push(connection_name.clone())
+
+                    for remove_name in to_remove {
+                        Self::remove_connection(&remove_name, &mut state);
                     }
+
+                    state
+                        .connections
+                        .insert(name, Connection { from, to, z: 1 });
                 }
-
-                for remove in to_remove {
-                    state.connections.remove(&remove);
-                    println!("deleted: {}", remove)
-                }
-
-                state
-                    .connections
-                    .insert(name, Connection { from, to, z: 1 });
-
                 state.dragging_from = None;
                 state.dragging_to = None;
             }
 
-            for (_, connection) in &mut state.connections {
-                connection.update(rl, thread, &cam);
+            let mut to_remove: Vec<String> = vec![];
+
+            for (conn_name, conn) in &mut state.connections {
+                conn.update(rl, thread, &cam);
+                let from_pos = conn.from.borrow().position.clone();
+                let to_pos = conn.to.borrow().position.clone();
+
+                if Window::point_in_bezier_line(
+                    from_pos.clone(),
+                    to_pos.clone(),
+                    rl.get_screen_to_world2D(mouse.clone(), &*cam).into(),
+                    15.0,
+                ) {
+                    if rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_RIGHT) {
+                        to_remove.push(conn_name.clone());
+                    }
+                }
+            }
+
+            for remove_name in to_remove {
+                Self::remove_connection(&remove_name, &mut state);
             }
         });
 
@@ -294,6 +335,23 @@ impl Window {
 
         if let Some(selector) = &mut self.node_selector {
             selector.update(rl, thread, &cam);
+            if let Some(tool_bar) = &mut self.tool_bar {
+                tool_bar.position.x = selector.size.x;
+                tool_bar.update(rl, thread, &cam);
+
+                let events = std::mem::take(&mut tool_bar.events);
+
+                for ev in events {
+                    match ev.as_str() {
+                        "save_file" => {
+                            self.save_file();
+                        }
+                        "open_file" => self.open_file(),
+                        "new_file" => self.new_file(),
+                        _ => {}
+                    }
+                }
+            }
         }
 
         for (i, (key, obj)) in self.objects.iter().enumerate() {
@@ -314,32 +372,27 @@ impl Window {
                         .set_property("active".to_string(), Box::new(false));
                 }
 
-                active_index = Some(i);
-                if rl.is_key_pressed(KeyboardKey::KEY_DELETE) {
+                if rl.is_key_pressed(KeyboardKey::KEY_DELETE)
+                    || rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_RIGHT)
+                {
                     to_remove.push(key.clone());
-                    EDITOR_STATE.with(|state| {
-                        let mut state = state.borrow_mut();
+                    EDITOR_STATE.with(|editor_state| {
+                        let mut state = editor_state.borrow_mut();
                         let mut to_remove: Vec<String> = vec![];
+
                         for (connection, _) in &mut state.connections {
-                            if connection.contains(format!("({}(", node.id).as_str()) {
+                            if connection.contains(node.id.as_str()) {
                                 to_remove.push(connection.clone());
                             }
                         }
 
-                        for remove in to_remove {
-                            state.connections.remove(&remove);
+                        for remove_name in to_remove {
+                            Self::remove_connection(&remove_name, &mut state);
                         }
                     })
                 }
-            } else if let Some(connection) = obj_mut.as_any_mut().downcast_mut::<Connection>() {
-                let from_pos = connection.from.borrow().position.clone();
-                let to_pos = connection.to.borrow().position.clone();
 
-                if Self::point_in_rect_from_two_points(from_pos, to_pos, mouse.clone())
-                    && rl.is_key_pressed(KeyboardKey::KEY_DELETE)
-                {
-                    to_remove.push(key.clone());
-                }
+                active_index = Some(i);
             }
 
             self.node_active = active_index.is_some();
@@ -349,38 +402,52 @@ impl Window {
             self.objects.remove(&key);
         }
 
-        let colorscheme = self.color_schemes.borrow();
-        let scheme = self.settings.borrow().scheme.clone();
+        drop(cam);
+        drop(settings);
 
-        {
-            let grid_obj = self.objects.get("grid").unwrap().clone();
-            let mut grid = grid_obj.borrow_mut();
+        EDITOR_STATE.with(|editor_state| {
+            let mut state = editor_state.borrow_mut();
 
-            grid.set_property(
-                "background_color".into(),
-                Box::new(
-                    colorscheme
-                        .get_color(&scheme, "grid_background")
-                        .unwrap_or(Color::MAGENTA),
-                ),
-            );
-            grid.set_property(
-                "square_color".into(),
-                Box::new(
-                    colorscheme
-                        .get_color(&scheme, "grid_square")
-                        .unwrap_or(Color::MAGENTA),
-                ),
-            );
-            grid.set_property(
-                "big_square_color".into(),
-                Box::new(
-                    colorscheme
-                        .get_color(&scheme, "grid_big_square")
-                        .unwrap_or(Color::MAGENTA),
-                ),
-            );
-        }
+            if let Some(dialog) = state.dialog.as_mut() {
+                let event = dialog.update(rl);
+
+                if event != "".to_string() {
+                    state.dialog = None;
+
+                    match event.as_str() {
+                        "file.open" => {
+                            if let Some(save) = SaveFile::read() {
+                                self.load_from_save(save.clone(), &mut state);
+                            }
+                        }
+                        "file.open_save" => {
+                            if !self.save_file() {
+                                return;
+                            }
+                            if let Some(save) = SaveFile::read() {
+                                self.load_from_save(save.clone(), &mut state);
+                            }
+                        }
+                        "file.new" => {
+                            state.connections.clear();
+                            state.node_names.clear();
+                            state.project_name = "untitled".to_string();
+                            self.objects.retain(|name, _| name == "grid");
+                        }
+                        "file.new_save" => {
+                            if !self.save_file_with_state(&mut state) {
+                                return;
+                            }
+                            state.connections.clear();
+                            state.node_names.clear();
+                            state.project_name = "untitled".to_string();
+                            self.objects.retain(|name, _| name == "grid");
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        });
     }
 
     fn draw(&self, rl: &mut RaylibHandle, thread: &RaylibThread) {
@@ -439,6 +506,17 @@ impl Window {
         if let Some(selector) = &self.node_selector {
             selector.draw(&mut d, &self.camera.borrow());
         }
+        if let Some(tool_bar) = &self.tool_bar {
+            tool_bar.draw(&mut d, &self.camera.borrow());
+        }
+
+        EDITOR_STATE.with(|state| {
+            let mut state = state.borrow_mut();
+
+            if let Some(dialog) = &mut state.dialog {
+                dialog.draw(&mut d, &self.camera.borrow());
+            }
+        });
     }
 
     fn load_translations(&mut self) {
@@ -495,13 +573,53 @@ impl Window {
         }
     }
 
-    fn point_in_rect_from_two_points(p0: Vector2, p1: Vector2, p: Vector2) -> bool {
-        let min_x = p0.x.min(p1.x);
-        let max_x = p0.x.max(p1.x);
-        let min_y = p0.y.min(p1.y);
-        let max_y = p0.y.max(p1.y);
+    fn point_in_bezier_line(p1: Vector2, p2: Vector2, point: Vector2, line_thickness: f32) -> bool {
+        fn dist(a: &Vector2, b: &Vector2) -> f32 {
+            let dx = a.x - b.x;
+            let dy = a.y - b.y;
+            (dx * dx + dy * dy).sqrt()
+        }
 
-        p.x >= min_x && p.x <= max_x && p.y >= min_y && p.y <= max_y
+        fn point_segment_distance(a: &Vector2, b: &Vector2, p: &Vector2) -> f32 {
+            let ab = b.clone() - a.clone();
+            let ap = p.clone() - a.clone();
+            let ab_len2 = ab.x * ab.x + ab.y * ab.y;
+            if ab_len2 == 0.0 {
+                return dist(a, p);
+            }
+            let t = ((ap.x * ab.x + ap.y * ab.y) / ab_len2).clamp(0.0, 1.0);
+            let proj = Vector2::new(a.x + ab.x * t, a.y + ab.y * t, None);
+            dist(&proj, p)
+        }
+
+        if (p1.x - p2.x).abs() < std::f32::EPSILON && (p1.y - p2.y).abs() < std::f32::EPSILON {
+            return dist(&p1, &point) <= line_thickness;
+        }
+
+        let delta = p2.clone() - p1.clone();
+        let length = (delta.x * delta.x + delta.y * delta.y)
+            .sqrt()
+            .max(std::f32::EPSILON);
+        let perp = Vector2::new(-delta.y / length, delta.x / length, None);
+        let midpoint = Vector2::new((p1.x + p2.x) * 0.5, (p1.y + p2.y) * 0.5, None);
+        let control = midpoint + perp * (length * 0.25);
+
+        let segments = 64usize;
+        let mut prev = p1.clone();
+        for i in 1..=segments {
+            let t = (i as f32) / (segments as f32);
+            let omt = 1.0 - t;
+            let bx = omt * omt * p1.x + 2.0 * omt * t * control.x + t * t * p2.x;
+            let by = omt * omt * p1.y + 2.0 * omt * t * control.y + t * t * p2.y;
+            let cur = Vector2::new(bx, by, None);
+
+            if point_segment_distance(&prev, &cur, &point) <= line_thickness {
+                return true;
+            }
+            prev = cur;
+        }
+
+        false
     }
 
     fn missing_numbers(vec: &Vec<usize>) -> Vec<usize> {
@@ -518,5 +636,243 @@ impl Window {
             }
         }
         missing
+    }
+
+    fn get_grid(&self) -> Rc<RefCell<Grid>> {
+        let settings = self.settings.borrow();
+
+        let grid = Rc::new(RefCell::new(Grid {
+            background_color: Color::new(40, 40, 40, 255),
+            big_square_color: Some(Color::new(80, 80, 80, 255)),
+            big_square_size: Some(Vector2::new(4.0, 4.0, None)),
+            position: -Vector2::from((
+                settings.grid_size[0] * settings.grid_square_size[0] / 2.0,
+                settings.grid_size[1] * settings.grid_square_size[1] / 2.0,
+            )),
+            size: settings.grid_size.clone().into(),
+            square_color: Color::new(64, 64, 64, 255),
+            square_size: settings.grid_square_size.clone().into(),
+            z: -100,
+        }));
+
+        {
+            let mut grid_borrow = grid.borrow_mut();
+            let colorscheme = self.color_schemes.borrow();
+            let scheme = &self.settings.borrow().scheme;
+
+            grid_borrow.set_property(
+                "background_color".into(),
+                Box::new(
+                    colorscheme
+                        .get_color(&scheme, "grid_background")
+                        .unwrap_or(Color::MAGENTA),
+                ),
+            );
+            grid_borrow.set_property(
+                "square_color".into(),
+                Box::new(
+                    colorscheme
+                        .get_color(&scheme, "grid_square")
+                        .unwrap_or(Color::MAGENTA),
+                ),
+            );
+            grid_borrow.set_property(
+                "big_square_color".into(),
+                Box::new(
+                    colorscheme
+                        .get_color(&scheme, "grid_big_square")
+                        .unwrap_or(Color::MAGENTA),
+                ),
+            );
+        }
+
+        grid
+    }
+
+    fn remove_connection(name: &str, state: &mut EditorState) {
+        if let Some(conn) = state.connections.remove(name) {
+            conn.to.borrow_mut().write(Python::attach(|py| py.None()));
+        }
+    }
+
+    fn save_file(&self) -> bool {
+        EDITOR_STATE.with(|state| self.save_file_with_state(&mut state.borrow_mut()))
+    }
+
+    fn save_file_with_state(&self, state: &mut EditorState) -> bool {
+        let nodes: Vec<NodeSave> = self
+            .objects
+            .iter()
+            .filter_map(|(_, obj)| {
+                let obj = obj.borrow();
+                let id = *obj
+                    .get_property("id".to_string())
+                    .downcast::<String>()
+                    .ok()?;
+                let type_name = *obj
+                    .get_property("type_name".to_string())
+                    .downcast::<String>()
+                    .ok()?;
+                let position = *obj
+                    .get_property("position".to_string())
+                    .downcast::<crate::structs::Vector2>()
+                    .ok()?;
+                Some(NodeSave {
+                    id,
+                    type_name,
+                    position: position.into(),
+                })
+            })
+            .collect();
+
+        state.save_file = Some(SaveFile::from(
+            state.project_name.clone(),
+            nodes,
+            state.connections.keys().cloned().collect(),
+        ));
+
+        if let Some(save) = &state.save_file {
+            save.write()
+        } else {
+            false
+        }
+    }
+
+    fn open_file(&self) {
+        EDITOR_STATE.with(|state| {
+            let mut state = state.borrow_mut();
+
+            state.dialog = Some(Dialog::new(
+                "file.open".to_string(),
+                vec![
+                    (DialogButton::Yes, "file.open_save".to_string()),
+                    (DialogButton::No, "file.open".to_string()),
+                    (DialogButton::Cancel, "".to_string()),
+                ],
+                self.color_schemes.clone(),
+                self.settings.clone(),
+                self.translations.clone(),
+                self.active_font.clone().unwrap(),
+            ))
+        })
+    }
+
+    pub fn load_from_save(&mut self, save: SaveFile, state: &mut EditorState) {
+        self.objects.retain(|key, _| key == "grid");
+
+        let lib = self.lib.clone();
+        let active_font = self.active_font.clone().unwrap();
+        let translations = self.translations.clone();
+        let color_schemes = self.color_schemes.clone();
+        let settings = self.settings.clone();
+
+        for n in save.nodes.into_iter() {
+            if let Some(node) = lib.borrow().generate(
+                &n.type_name.clone(),
+                active_font.clone(),
+                translations.clone(),
+                color_schemes.clone(),
+                settings.clone(),
+                n.id.clone(),
+            ) {
+                node.borrow_mut().position = n.position.into();
+
+                self.objects
+                    .insert(n.id.clone(), node.clone() as Rc<RefCell<dyn Object>>);
+
+                let type_name = n.type_name.clone();
+                let list = state
+                    .node_names
+                    .entry(type_name.clone())
+                    .or_insert_with(Vec::new);
+                let index_str = n.id.trim_start_matches(&type_name.clone());
+                if let Ok(index) = index_str.parse::<usize>() {
+                    list.push(index);
+                }
+            }
+        }
+
+        state.connections.clear();
+
+        for conn_name in save.connections.clone() {
+            println!("{}", conn_name.clone());
+            if let Some(((from_node, from_port), (to_node, to_port))) =
+                Self::parse_connection(&conn_name)
+            {
+                if let (Some(from), Some(to)) = (
+                    self.find_port(&from_node, &from_port),
+                    self.find_port(&to_node, &to_port),
+                ) {
+                    state
+                        .connections
+                        .insert(conn_name, Connection { from, to, z: 1 });
+                }
+            }
+        }
+    }
+
+    pub fn find_port(
+        &self,
+        node_id: &str,
+        port_label: &str,
+    ) -> Option<Rc<RefCell<Box<crate::node::Port>>>> {
+        for (id, obj) in &self.objects {
+            if id.clone() == node_id.to_string() {
+                let node_ref = obj.borrow();
+                if let Some(node) = node_ref.as_any().downcast_ref::<Node>() {
+                    for (label, _, _, port) in &node.ports {
+                        if label == port_label {
+                            return Some(port.clone());
+                        }
+                    }
+                } else {
+                }
+            }
+        }
+        None
+    }
+
+    pub fn parse_connection(s: &str) -> Option<((String, String), (String, String))> {
+        let mut parts = s.split("))((");
+
+        let left = parts.next()?;
+        let right = parts.next()?;
+
+        let left = left.trim_start_matches("((");
+        let right = right.trim_end_matches("))");
+
+        fn parse_side(side: &str) -> Option<(String, String)> {
+            let parts: Vec<&str> = side.splitn(2, "):(").collect();
+            if parts.len() != 2 {
+                return None;
+            }
+            let node = parts[0].to_string();
+            let port = parts[1].trim_matches('"').to_string();
+            Some((node, port))
+        }
+
+        let left_tuple = parse_side(left)?;
+        let right_tuple = parse_side(right)?;
+
+        Some((left_tuple, right_tuple))
+    }
+
+    fn new_file(&self) {
+        EDITOR_STATE.with(|state| {
+            let mut state = state.borrow_mut();
+
+            state.dialog = Some(Dialog::new(
+                "file.new".to_string(),
+                vec![
+                    (DialogButton::Yes, "file.new_save".to_string()),
+                    (DialogButton::No, "file.new".to_string()),
+                    (DialogButton::Cancel, "".to_string()),
+                ],
+                self.color_schemes.clone(),
+                self.settings.clone(),
+                self.translations.clone(),
+                self.active_font.clone().unwrap(),
+            ))
+        })
     }
 }

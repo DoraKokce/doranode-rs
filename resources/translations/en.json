@@ -20,6 +20,14 @@
       "title": "Square Root",
       "description": "Calculates the square root of input A."
     },
+    "doranode:math.nthroot": {
+      "title": "Root",
+      "description": "Calculates the Bth nthroot of input A."
+    },
+    "doranode:math.pow": {
+      "title": "Power",
+      "description": "Raises input A to the power of input B."
+    },
     "doranode:math": {
       "title": "Math",
       "description": "Nodes for mathematical operations"
@@ -49,6 +57,29 @@
     "window.title": "Doranode Visual Programing Tool",
     "text.ok": "Okay",
     "text.cancel": "Cancel",
-    "text.continue": "Continue"
+    "text.continue": "Continue",
+    "text.close": "Close",
+    "text.yes": "Yes",
+    "text.no": "No",
+    "toolbar.file": "File",
+    "toolbar.file.new": "New",
+    "toolbar.file.open": "Open",
+    "toolbar.file.save": "Save",
+    "toolbar.file.save_as": "Save As",
+    "toolbar.file.exit": "Exit",
+    "toolbar.edit": "Edit",
+    "toolbar.edit.undo": "Undo",
+    "toolbar.edit.redo": "Redo",
+    "toolbar.edit.delete": "Delete",
+    "toolbar.help": "Help",
+    "toolbar.help.about": "About",
+    "dialog.about.title": "About Doranode",
+    "dialog.about.content": "Doranode is a tool for visual programming.",
+    "dialog.file.new.title": "New File",
+    "dialog.file.new.content": "Unsaved changes will be lost. Do you want to save?",
+    "dialog.file.open.title": "Open File",
+    "dialog.file.open.content": "Unsaved changes will be lost. Do you want to save?",
+    "dialog.file.save.title": "Save File",
+    "dialog.file.save.content": "File saved successfully."
   }
 }

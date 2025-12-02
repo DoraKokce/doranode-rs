@@ -56,20 +56,18 @@ impl NodeLibary {
     }
 
     pub fn get_hierarchy(&self) -> Vec<(String, Vec<(String, Vec<String>)>)> {
-        use std::collections::HashMap;
-
         let mut map: HashMap<String, HashMap<String, Vec<String>>> = HashMap::new();
 
         for key in self.nodes.keys() {
             let (prefix, rest) = key.split_once(":").unwrap_or(("default", key));
-
             let (module, node) = rest.split_once(".").unwrap_or((rest, ""));
 
-            map.entry(prefix.to_string())
-                .or_default()
-                .entry(module.to_string())
-                .or_default()
-                .push(node.to_string());
+            let modules_map = map.entry(prefix.to_string()).or_default();
+            let nodes_vec = modules_map.entry(module.to_string()).or_default();
+
+            if !node.is_empty() {
+                nodes_vec.push(node.to_string());
+            }
         }
 
         for modules in map.values_mut() {
@@ -79,16 +77,12 @@ impl NodeLibary {
         }
 
         let mut prefixes: Vec<(String, HashMap<String, Vec<String>>)> = map.into_iter().collect();
-
         prefixes.sort_by(|a, b| a.0.cmp(&b.0));
 
         let mut final_vec = Vec::new();
-
         for (prefix, modules_map) in prefixes {
             let mut modules_vec: Vec<(String, Vec<String>)> = modules_map.into_iter().collect();
-
-            modules_vec.sort_by(|a, b| a.0.cmp(&b.0)); // module isimlerini sırala
-
+            modules_vec.sort_by(|a, b| a.0.cmp(&b.0));
             final_vec.push((prefix, modules_vec));
         }
 

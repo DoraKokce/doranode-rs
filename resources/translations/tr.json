@@ -20,6 +20,14 @@
       "title": "Karekök",
       "description": "A girişinin karekökünü hesaplar."
     },
+    "doranode:math.nthroot": {
+      "title": "Kök",
+      "description": "A girişinin B. dereceden kökünü hesaplar."
+    },
+    "doranode:math.pow": {
+      "title": "Kuvvet",
+      "description": "A girişini B girişinin kuvvetine yükseltir."
+    },
     "doranode:math": {
       "title": "Matematik",
       "description": "Matematiksel işlemler için düğümler"
@@ -49,6 +57,29 @@
     "window.title": "Doranode Görsel Programlama Aracı",
     "text.ok": "Tamam",
     "text.cancel": "İptal",
-    "text.continue": "Devam"
+    "text.continue": "Devam",
+    "text.close": "Kapat",
+    "text.yes": "Evet",
+    "text.no": "Hayır",
+    "toolbar.file": "Dosya",
+    "toolbar.file.new": "Yeni",
+    "toolbar.file.open": "Aç",
+    "toolbar.file.save": "Kaydet",
+    "toolbar.file.save_as": "Farklı Kaydet",
+    "toolbar.file.exit": "Çıkış",
+    "toolbar.edit": "Düzenle",
+    "toolbar.edit.undo": "Geri Al",
+    "toolbar.edit.redo": "Yinele",
+    "toolbar.edit.delete": "Sil",
+    "toolbar.help": "Yardım",
+    "toolbar.help.about": "Hakkında",
+    "dialog.about.title": "Doranode Hakkında",
+    "dialog.about.content": "Doranode, görsel programlama için bir araçtır.",
+    "dialog.file.new.title": "Yeni Dosya",
+    "dialog.file.new.content": "Kaydedilmemiş değişiklikler kaybolacak. Kaydetmek istiyor musunuz?",
+    "dialog.file.open.title": "Dosya Aç",
+    "dialog.file.open.content": "Kaydedilmemiş değişiklikler kaybolacak. Kaydetmek istiyor musunuz?",
+    "dialog.file.save.title": "Dosya Kaydet",
+    "dialog.file.save.content": "Dosya başarıyla kaydedildi."
   }
 }

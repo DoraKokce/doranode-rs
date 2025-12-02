@@ -193,3 +193,10 @@ impl From<[f32; 2]> for Vector2 {
         Vector2::new(value[0], value[1], None)
     }
 }
+
+impl Into<[f32; 2]> for Vector2 {
+    fn into(self) -> [f32; 2] {
+        let v = self.from_origin();
+        [v.x, v.y]
+    }
+}

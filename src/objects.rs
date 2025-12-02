@@ -1,11 +1,6 @@
-use std::{
-    any::Any,
-    cell::{Ref, RefCell},
-    fmt::Debug,
-    rc::Rc,
-};
+use std::{any::Any, cell::RefCell, fmt::Debug, rc::Rc};
 
-use pyo3::{IntoPyObjectExt, prelude::*, types::PyNone};
+use pyo3::{IntoPyObjectExt, prelude::*};
 use raylib::prelude::*;
 use raylib_sys::CheckCollisionPointRec;
 
@@ -542,7 +537,7 @@ impl Object for ComboBox {
         self
     }
 
-    fn draw(&self, draw_handle: &mut RaylibDrawHandle, camera: &Camera) {
+    fn draw(&self, draw_handle: &mut RaylibDrawHandle, _: &Camera) {
         draw_handle.draw_rectangle(
             self.position.x as i32,
             self.position.y as i32,
@@ -929,19 +924,34 @@ impl Object for TextBox {
         self.font_size = self.size.y as i32 - 8;
         self.cursor_blink =
             (rl.get_time() * 2.0) as i32 % 2 == 0 && self.active && self.is_editable;
+
+        if self.scalable
+            && let Some(min_size) = &self.min_size
+        {
+            let text_px = self
+                .font
+                .borrow()
+                .measure_text(&self.text, self.font_size as f32, 1.0)
+                .x;
+            self.size.x = min_size.x.max(text_px + 16.0);
+            self.size.y = min_size.y.max(self.size.y);
+        }
+
         if self.is_editable == false {
             return;
         }
         let mouse_pos = rl.get_screen_to_world2D(rl.get_mouse_position(), Camera2D::from(camera));
         let rect: Rectangle = self.into();
 
+        let is_hover = raylib::prelude::Rectangle::from(rect).check_collision_point_rec(mouse_pos);
+        if is_hover {
+            rl.set_mouse_cursor(MouseCursor::MOUSE_CURSOR_IBEAM);
+        } else {
+            rl.set_mouse_cursor(MouseCursor::MOUSE_CURSOR_DEFAULT);
+        }
+
         if rl.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT) {
-            self.active = unsafe {
-                CheckCollisionPointRec(
-                    ffi::Vector2::from(mouse_pos) as raylib_sys::Vector2,
-                    (prelude::Rectangle::from(rect) as raylib::prelude::Rectangle).into(),
-                )
-            };
+            self.active = is_hover
         }
 
         if !self.active {
@@ -999,12 +1009,13 @@ impl Object for TextBox {
                     if let Some(allowed) = self.allowed_chars.take() {
                         if allowed.contains(&c) {
                             self.text.insert(byte_index, c);
+                            self.cursor_index += 1;
                         }
                         self.allowed_chars = Some(allowed);
                     } else {
                         self.text.insert(byte_index, c);
+                        self.cursor_index += 1;
                     }
-                    self.cursor_index += 1;
                 }
             }
         }
@@ -1021,22 +1032,6 @@ impl Object for TextBox {
             .borrow()
             .measure_text(&scroll_prefix, self.font_size as f32, 1.0)
             .x as i32;
-
-        if self.scalable {
-            let text_px = self
-                .font
-                .borrow()
-                .measure_text(&self.text, self.font_size as f32, 1.0)
-                .x as i32;
-            if text_px + 16 > self.size.x as i32 {
-                self.size.x = text_px as f32;
-            } else if let Some(min_size) = &self.min_size {
-                if self.size.x < min_size.x {
-                    self.size.x = min_size.x;
-                }
-            }
-            return;
-        }
 
         let cursor_prefix: String = self.text.chars().take(self.cursor_index).collect();
         let cursor_px = self
@@ -1499,23 +1494,7 @@ impl PyObjectWrapper {
     pub fn get_property(&self, name: String, py: Python) -> PyResult<Py<PyAny>> {
         let prop = self.inner.borrow().get_property(name);
 
-        if let Some(v) = prop.downcast_ref::<i32>() {
-            v.into_py_any(py)
-        } else if let Some(v) = prop.downcast_ref::<f32>() {
-            v.into_py_any(py)
-        } else if let Some(v) = prop.downcast_ref::<bool>() {
-            v.into_py_any(py)
-        } else if let Some(v) = prop.downcast_ref::<String>() {
-            v.into_py_any(py)
-        } else if let Some(v) = prop.downcast_ref::<&str>() {
-            v.into_py_any(py)
-        } else if let Some(v) = prop.downcast_ref::<Vector2>() {
-            (v.x, v.y).into_py_any(py)
-        } else if let Some(v) = prop.downcast_ref::<Color>() {
-            (v.r, v.g, v.b, v.a).into_py_any(py)
-        } else {
-            Ok(py.None())
-        }
+        Self::to_py(py, prop)
     }
 
     pub fn set_property(
@@ -1524,28 +1503,9 @@ impl PyObjectWrapper {
         value: &Bound<PyAny>,
         py: Python,
     ) -> PyResult<Py<PyAny>> {
-        let val = if let Ok(v) = value.extract::<i32>() {
-            Ok(Box::new(v) as Box<dyn Any>)
-        } else if let Ok(v) = value.extract::<f32>() {
-            Ok(Box::new(v) as Box<dyn Any>)
-        } else if let Ok(v) = value.extract::<String>() {
-            Ok(Box::new(v) as Box<dyn Any>)
-        } else if let Ok(v) = value.extract::<bool>() {
-            Ok(Box::new(v) as Box<dyn Any>)
-        } else if let Ok(v) = value.extract::<(i32, i32)>() {
-            Ok(Box::new(Vector2::from(v)) as Box<dyn Any>)
-        } else if let Ok((r, g, b, a)) = value.extract::<(u8, u8, u8, u8)>() {
-            Ok(Box::new(Color::new(r, g, b, a)) as Box<dyn Any>)
-        } else if value.is_none() {
-            Ok(Box::new(()) as Box<dyn Any>)
-        } else {
-            Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
-                "Desteklenmeyen Python tipi, değeri: {}",
-                value
-            )))
-        };
+        let val = Self::to_rust(value)?;
 
-        self.inner.borrow_mut().set_property(name, val?);
+        self.inner.borrow_mut().set_property(name, val);
 
         Ok(py.None())
     }
@@ -1554,5 +1514,61 @@ impl PyObjectWrapper {
 impl PyObjectWrapper {
     pub fn new(inner: Rc<RefCell<Box<dyn Object>>>) -> Self {
         Self { inner }
+    }
+
+    pub fn to_py(py: Python, value: Box<dyn Any>) -> PyResult<Py<PyAny>> {
+        for handled in [
+            value.downcast_ref::<i32>().map(|v| v.into_py_any(py)),
+            value.downcast_ref::<f32>().map(|v| v.into_py_any(py)),
+            value.downcast_ref::<bool>().map(|v| v.into_py_any(py)),
+            value.downcast_ref::<String>().map(|v| v.into_py_any(py)),
+            value.downcast_ref::<&str>().map(|v| v.into_py_any(py)),
+        ] {
+            if let Some(result) = handled {
+                return result;
+            }
+        }
+
+        if let Some(v) = value.downcast_ref::<Vector2>() {
+            return (v.x, v.y).into_py_any(py);
+        }
+
+        if let Some(v) = value.downcast_ref::<Color>() {
+            return (v.r, v.g, v.b, v.a).into_py_any(py);
+        }
+
+        Ok(py.None())
+    }
+
+    pub fn to_rust(value: &Bound<PyAny>) -> PyResult<Box<dyn Any>> {
+        for extractor in [
+            value.extract::<i32>().map(|v| Box::new(v) as Box<dyn Any>),
+            value.extract::<f32>().map(|v| Box::new(v) as Box<dyn Any>),
+            value
+                .extract::<String>()
+                .map(|v| Box::new(v) as Box<dyn Any>),
+            value.extract::<bool>().map(|v| Box::new(v) as Box<dyn Any>),
+        ] {
+            if let Ok(v) = extractor {
+                return Ok(v);
+            }
+        }
+
+        if let Ok(v) = value.extract::<(i32, i32)>() {
+            return Ok(Box::new(Vector2::from(v)) as Box<dyn Any>);
+        }
+
+        if let Ok((r, g, b, a)) = value.extract::<(u8, u8, u8, u8)>() {
+            return Ok(Box::new(Color::new(r, g, b, a)) as Box<dyn Any>);
+        }
+
+        if value.is_none() {
+            return Ok(Box::new(()) as Box<dyn Any>);
+        }
+
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
+            "Unsupported Python type: {}",
+            value
+        )))
     }
 }
