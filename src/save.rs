@@ -17,6 +17,7 @@ pub struct SaveFile {
     pub project_name: String,
     pub nodes: Vec<NodeSave>,
     pub connections: Vec<String>,
+    pub camera_pos: [f32; 2],
 }
 
 impl SaveFile {
@@ -25,14 +26,21 @@ impl SaveFile {
             project_name,
             nodes: Vec::new(),
             connections: Vec::new(),
+            camera_pos: [0.0, 0.0],
         }
     }
 
-    pub fn from(project_name: String, nodes: Vec<NodeSave>, connections: Vec<String>) -> Self {
+    pub fn from(
+        project_name: String,
+        nodes: Vec<NodeSave>,
+        connections: Vec<String>,
+        camera_pos: [f32; 2],
+    ) -> Self {
         SaveFile {
             project_name,
             nodes,
             connections,
+            camera_pos,
         }
     }
 

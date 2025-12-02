@@ -729,6 +729,7 @@ impl Window {
             state.project_name.clone(),
             nodes,
             state.connections.keys().cloned().collect(),
+            self.camera.borrow().target.clone().into(),
         ));
 
         if let Some(save) = &state.save_file {
@@ -809,6 +810,8 @@ impl Window {
                 }
             }
         }
+
+        self.camera.borrow_mut().target = save.camera_pos.into();
     }
 
     pub fn find_port(
