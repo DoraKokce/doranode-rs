@@ -24,6 +24,7 @@ pub struct EditorState {
     pub dialog: Option<Dialog>,
     pub save_file: Option<SaveFile>,
     pub project_name: String,
+    pub selector_size: Vector2,
 }
 
 thread_local! {
@@ -36,6 +37,7 @@ thread_local! {
         dialog: None,
         save_file: None,
         project_name: "untitled".to_string(),
+        selector_size: Vector2::zero(),
     });
 }
 pub struct Window {
@@ -194,7 +196,10 @@ impl Window {
 
             if rl.is_mouse_button_released(MouseButton::MOUSE_BUTTON_LEFT) {
                 self.dragging = false;
-                if let Some(module) = state.selected_module.clone() {
+                if let Some(module) = state.selected_module.clone()
+                    && !Rectangle::new(0.0, 0.0, state.selector_size.x, state.selector_size.y)
+                        .check_collision_point_rec(mouse.clone())
+                {
                     let list = state
                         .node_names
                         .entry(module.clone())
@@ -221,13 +226,13 @@ impl Window {
                     ) {
                         let mouse_world: Vector2 =
                             rl.get_screen_to_world2D(mouse.clone(), &cam.clone()).into();
-                        node.borrow_mut().position = mouse_world;
+                        let size = node.borrow().size.clone();
+                        node.borrow_mut().position = mouse_world - size / 2.0;
 
                         self.objects.insert(id.clone(), node.clone());
 
                         list.push(next_index);
                     }
-
                     state.selected_module = None;
                 }
 
@@ -421,7 +426,8 @@ impl Window {
                             }
                         }
                         "file.open_save" => {
-                            if !self.save_file_with_state(&mut state, self.camera.borrow().clone()) {
+                            if !self.save_file_with_state(&mut state, self.camera.borrow().clone())
+                            {
                                 return;
                             }
                             if let Some(save) = SaveFile::read() {
@@ -517,7 +523,7 @@ impl Window {
             tool_bar.draw(&mut d, &self.camera.borrow());
         }
 
-        EDITOR_STATE.with(|state| {
+        EDITOR_STATE.with(|state: &RefCell<EditorState>| {
             let mut state = state.borrow_mut();
 
             if let Some(dialog) = &mut state.dialog {

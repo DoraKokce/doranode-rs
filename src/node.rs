@@ -218,13 +218,12 @@ impl Object for Node {
         }
 
         /* Drag and drop */
-        if rl_handle.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT)
-            || rl_handle.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_RIGHT)
+        if (rl_handle.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT)
+            || rl_handle.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_RIGHT))
+            && Rectangle::from(rect).check_collision_point_rec(mouse_pos.clone())
         {
-            if unsafe { CheckCollisionPointRec(mouse_pos.clone().into(), rect) } {
-                self.active = true;
-                self.mouse_offset = Some(mouse_pos.clone() - self.position.clone());
-            }
+            self.active = true;
+            self.mouse_offset = Some(mouse_pos.clone() - self.position.clone());
         }
 
         if rl_handle.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT)
@@ -240,7 +239,7 @@ impl Object for Node {
             self.mouse_offset = None;
         }
 
-        for (i, (label, is_output, y_offset, port)) in self.ports.iter().enumerate() {
+        for (_, (label, is_output, y_offset, port)) in self.ports.iter().enumerate() {
             let port_position = Vector2::new(
                 self.position.x + if *is_output { self.size.x } else { 0.0 },
                 self.position.y + *y_offset as f32,

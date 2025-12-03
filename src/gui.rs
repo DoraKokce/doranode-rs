@@ -1,15 +1,14 @@
 use raylib::prelude::*;
-use raylib_sys::CheckCollisionPointRec;
 use std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     colorscheme::ColorSchemes,
     node_libary::NodeLibary,
-    objects::{Camera, Object, TextBox},
+    objects::{Camera, Object},
     settings::Settings,
     structs::Vector2,
     translations::Translations,
-    window::{EDITOR_STATE, EditorState},
+    window::EDITOR_STATE,
 };
 
 pub struct NodeSelector {
@@ -264,13 +263,16 @@ impl Object for NodeSelector {
         }
 
         self.size.x = max_width;
+        EDITOR_STATE.with(|state| {
+            state.borrow_mut().selector_size = self.size.clone();
+        });
     }
 
-    fn get_property(&self, key: String) -> Box<dyn Any + 'static> {
+    fn get_property(&self, _: String) -> Box<dyn Any + 'static> {
         Box::new(())
     }
 
-    fn set_property(&mut self, key: String, value: Box<dyn Any>) {}
+    fn set_property(&mut self, _: String, _: Box<dyn Any>) {}
 }
 
 impl NodeSelector {
@@ -498,8 +500,6 @@ impl ToolBar {
         max_x
     }
 }
-
-use raylib::prelude::*;
 
 pub fn draw_text_wordwrap(
     d: &mut RaylibDrawHandle,

@@ -3,6 +3,7 @@
     "grid_background": "#1e1e1e",
     "grid_square": "#505050",
     "grid_big_square": "#c8c8c8",
+    "node_active": "#505050",
     "node_background": "#3c3c3c",
     "node_border": "#1e1e1e",
     "node_active_border": "#faa500",

@@ -944,11 +944,6 @@ impl Object for TextBox {
         let rect: Rectangle = self.into();
 
         let is_hover = raylib::prelude::Rectangle::from(rect).check_collision_point_rec(mouse_pos);
-        if is_hover {
-            rl.set_mouse_cursor(MouseCursor::MOUSE_CURSOR_IBEAM);
-        } else {
-            rl.set_mouse_cursor(MouseCursor::MOUSE_CURSOR_DEFAULT);
-        }
 
         if rl.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT) {
             self.active = is_hover
@@ -1018,6 +1013,10 @@ impl Object for TextBox {
                     }
                 }
             }
+        }
+
+        if self.scalable {
+            return;
         }
 
         let total_chars = self.text.chars().count();
