@@ -53,7 +53,7 @@ fn input_int_ctor(
         color_schemes,
         settings,
         id,
-        false,
+        true,
     );
 
     Node::add_component(
@@ -69,7 +69,7 @@ fn input_int_ctor(
             None,
             font.clone(),
             true,
-            false,
+            true,
             None,
             Some(vec!['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-']),
             1,
@@ -120,7 +120,7 @@ fn input_str_ctor(
         color_schemes,
         settings,
         id,
-        false,
+        true,
     );
 
     Node::add_component(
@@ -136,7 +136,7 @@ fn input_str_ctor(
             None,
             font.clone(),
             true,
-            false,
+            true,
             None,
             None,
             1,
@@ -187,7 +187,7 @@ fn input_float_ctor(
         color_schemes,
         settings,
         id,
-        false,
+        true,
     );
 
     Node::add_component(
@@ -203,7 +203,7 @@ fn input_float_ctor(
             None,
             font.clone(),
             true,
-            false,
+            true,
             None,
             Some(vec![
                 '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.', '-',

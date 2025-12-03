@@ -421,7 +421,7 @@ impl Window {
                             }
                         }
                         "file.open_save" => {
-                            if !self.save_file(self.camera.borrow().clone()) {
+                            if !self.save_file_with_state(&mut state, self.camera.borrow().clone()) {
                                 return;
                             }
                             if let Some(save) = SaveFile::read() {
