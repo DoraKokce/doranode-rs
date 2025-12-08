@@ -1,14 +1,14 @@
 use pyo3::prelude::*;
 use raylib::prelude::*;
 use raylib_sys::SetTextureFilter;
-use std::{cell::RefCell, collections::HashMap, fs, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, fs, path::Path, rc::Rc};
 
 use crate::{
     colorscheme::ColorSchemes,
     gui::{self, Dialog, DialogButton, ToolBarItem},
+    modules::ModuleManager,
     node::{Connection, Node, Port},
-    node_libary::NodeLibary,
-    objects::{Camera, Grid, Object},
+    objects::{Camera, Grid, Object, register_object_types},
     save::{CameraSave, NodeSave, SaveFile},
     settings::Settings,
     structs::Vector2,
@@ -51,7 +51,7 @@ pub struct Window {
     pub dragging: bool,
     pub last_mouse: Vector2,
     pub node_active: bool,
-    pub lib: Rc<RefCell<NodeLibary>>,
+    pub module_manager: Rc<RefCell<ModuleManager>>,
     pub node_selector: Option<gui::NodeSelector>,
     pub tool_bar: Option<gui::ToolBar>,
 }
@@ -76,16 +76,21 @@ impl Window {
             dragging: false,
             last_mouse: Vector2::zero(),
             node_active: false,
-            lib: Rc::new(RefCell::new(NodeLibary::insert_default_nodes())),
+            module_manager: Rc::new(RefCell::new(ModuleManager::new())),
             node_selector: None,
             tool_bar: None,
         }
     }
 
     pub fn init(&mut self) -> (RaylibHandle, RaylibThread) {
+        register_object_types();
         Python::initialize();
         self.load_translations();
         self.load_schemes();
+        self.module_manager.borrow_mut().add_module(
+            Path::new("resources/doranode-builtin.dnode"),
+            &mut self.translations.borrow_mut(),
+        );
 
         let (mut rl_handle, rl_thread) = raylib::init().size(960, 720).resizable().build();
         rl_handle.set_window_title(
@@ -109,7 +114,7 @@ impl Window {
         self.objects.insert("grid".to_string(), self.get_grid());
 
         self.node_selector = Some(gui::NodeSelector::new(
-            self.lib.clone(),
+            self.module_manager.clone(),
             self.active_font.clone().unwrap(),
             self.color_schemes.clone(),
             self.settings.clone(),
@@ -216,8 +221,9 @@ impl Window {
 
                     let id = format!("{}{}", module, next_index);
 
-                    if let Some(node) = self.lib.borrow().generate(
-                        &module,
+                    if let Some(node) = self.module_manager.borrow().generate(
+                        Vector2::zero(),
+                        module,
                         self.active_font.clone().unwrap(),
                         self.translations.clone(),
                         self.color_schemes.clone(),
@@ -779,7 +785,7 @@ impl Window {
     pub fn load_from_save(&mut self, save: SaveFile, state: &mut EditorState) {
         self.objects.retain(|key, _| key == "grid");
 
-        let lib = self.lib.clone();
+        let lib = self.module_manager.clone();
         let active_font = self.active_font.clone().unwrap();
         let translations = self.translations.clone();
         let color_schemes = self.color_schemes.clone();
@@ -787,7 +793,8 @@ impl Window {
 
         for n in save.nodes.into_iter() {
             if let Some(node) = lib.borrow().generate(
-                &n.type_name.clone(),
+                Vector2::zero(),
+                n.type_name.clone(),
                 active_font.clone(),
                 translations.clone(),
                 color_schemes.clone(),

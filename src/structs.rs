@@ -1,6 +1,7 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use pyo3::{IntoPyObject, pyclass};
+use raylib::color::Color;
 
 #[derive(Debug, Clone)]
 pub struct Vector2 {

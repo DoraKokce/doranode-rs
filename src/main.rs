@@ -1,14 +1,17 @@
 use std::{cell::RefCell, env, rc::Rc};
 
+use pyo3::{PyResult, Python, prelude::*, pymodule, types::PyModule};
+
 use crate::{
     save::SaveFile,
     window::{EDITOR_STATE, Window},
 };
 
 mod colorscheme;
+mod draw;
 mod gui;
+mod modules;
 mod node;
-mod node_libary;
 mod objects;
 mod save;
 mod settings;
@@ -17,6 +20,10 @@ mod translations;
 mod window;
 
 fn main() {
+    unsafe {
+        let venv_path = "venv";
+        env::set_var("PYO3_PYTHON", format!("{}/bin/python", venv_path));
+    };
     let mut window = Window::new();
     let (rl_handle, rl_thread) = window.init();
 

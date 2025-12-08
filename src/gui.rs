@@ -3,7 +3,7 @@ use std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     colorscheme::ColorSchemes,
-    node_libary::NodeLibary,
+    modules::ModuleManager,
     objects::{Camera, Object},
     settings::Settings,
     structs::Vector2,
@@ -12,7 +12,7 @@ use crate::{
 };
 
 pub struct NodeSelector {
-    pub libary: Rc<RefCell<NodeLibary>>,
+    pub libary: Rc<RefCell<ModuleManager>>,
     pub colorscheme: Rc<RefCell<ColorSchemes>>,
     pub settings: Rc<RefCell<Settings>>,
     pub translations: Rc<RefCell<Translations>>,
@@ -277,7 +277,7 @@ impl Object for NodeSelector {
 
 impl NodeSelector {
     pub fn new(
-        libary: Rc<RefCell<NodeLibary>>,
+        libary: Rc<RefCell<ModuleManager>>,
         font: Rc<RefCell<Font>>,
         colorscheme: Rc<RefCell<ColorSchemes>>,
         settings: Rc<RefCell<Settings>>,

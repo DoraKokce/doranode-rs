@@ -2,9 +2,30 @@ use std::{any::Any, cell::RefCell, fmt::Debug, rc::Rc};
 
 use pyo3::{IntoPyObjectExt, prelude::*};
 use raylib::prelude::*;
-use raylib_sys::CheckCollisionPointRec;
 
-use crate::structs::Vector2;
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
+
+use crate::{
+    colorscheme::ColorSchemes, settings::Settings, structs::Vector2, translations::Translations,
+};
+
+pub type ExtractFn = fn(py: Python<'_>, obj: &Py<PyAny>) -> Option<Box<dyn Object>>;
+
+pub static OBJECT_REGISTRY: Lazy<Mutex<Vec<ExtractFn>>> = Lazy::new(|| Mutex::new(Vec::new()));
+
+pub fn register_object_type<T: Object + for<'a> FromPyObject<'a, 'a> + 'static>() {
+    fn make_fn<T: Object + for<'a> FromPyObject<'a, 'a> + 'static>(
+        py: Python<'_>,
+        obj: &Py<PyAny>,
+    ) -> Option<Box<dyn Object>> {
+        obj.extract::<T>(py)
+            .ok()
+            .map(|t| Box::new(t) as Box<dyn Object>)
+    }
+
+    OBJECT_REGISTRY.lock().unwrap().push(make_fn::<T>);
+}
 
 pub trait Object {
     fn draw(&self, draw_handle: &mut RaylibDrawHandle, camera: &Camera);
@@ -16,6 +37,8 @@ pub trait Object {
 }
 
 /* RECTANGLE */
+#[pyclass(unsendable)]
+#[derive(Clone)]
 pub struct Rectangle {
     pub position: Vector2,
     pub size: Vector2,
@@ -136,6 +159,7 @@ impl From<Rectangle> for raylib::prelude::Rectangle {
 
 /* ROUNDED RECTANGLE */
 #[derive(Debug, Clone)]
+#[pyclass]
 pub struct RoundedRectangle {
     pub position: Vector2,
     pub size: Vector2,
@@ -255,6 +279,7 @@ impl From<RoundedRectangle> for raylib::prelude::Rectangle {
 
 /* CIRCLE */
 #[derive(Debug, Clone)]
+#[pyclass]
 pub struct Circle {
     pub position: Vector2,
     pub radius: f32,
@@ -348,6 +373,7 @@ impl Object for Circle {
 
 /* GRID */
 #[derive(Debug, Clone)]
+#[pyclass]
 pub struct Grid {
     pub position: Vector2,
     pub size: Vector2,
@@ -480,6 +506,8 @@ impl Object for Grid {
 
 /* COMBOBOX */
 
+#[pyclass(unsendable)]
+#[derive(Clone)]
 pub struct ComboBox {
     pub position: Vector2,
     pub size: Vector2,
@@ -667,6 +695,8 @@ impl Object for ComboBox {
 }
 
 /* TEXT */
+#[pyclass(unsendable)]
+#[derive(Clone)]
 pub struct TextLabel {
     pub position: Vector2,
     pub foreground_color: Color,
@@ -753,7 +783,8 @@ impl Object for TextLabel {
 }
 
 /* IMAGE */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+#[pyclass(unsendable)]
 pub struct Image {
     pub position: Vector2,
     pub texture: Option<Rc<Texture2D>>,
@@ -844,7 +875,8 @@ impl From<&Image> for raylib_sys::Rectangle {
 }
 
 /* TEXTBOX */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+#[pyclass(unsendable)]
 pub struct TextBox {
     pub position: Vector2,
     pub size: Vector2,
@@ -1245,21 +1277,22 @@ impl From<&TextBox> for Rectangle {
 }
 
 /* SLIDER */
-#[derive(Debug)]
-pub struct Slider<T: AsF32 + From<f32> + 'static> {
+#[derive(Debug, Clone)]
+#[pyclass(unsendable)]
+pub struct Slider {
     pub position: Vector2,
     pub size: Vector2,
-    pub min_value: T,
-    pub max_value: T,
-    pub value: T,
+    pub min_value: f32,
+    pub max_value: f32,
+    pub value: f32,
     pub background_color: Option<Color>,
     pub foreground_color: Option<Color>,
     pub handle_color: Color,
-    pub step: Option<T>,
+    pub step: Option<f32>,
     pub z: i32,
 }
 
-impl<T: AsF32 + From<f32> + 'static> Object for Slider<T> {
+impl Object for Slider {
     fn draw(&self, draw_handle: &mut RaylibDrawHandle, _: &Camera) {
         if let Some(bg_color) = self.background_color {
             draw_handle.draw_rectangle(
@@ -1359,17 +1392,17 @@ impl<T: AsF32 + From<f32> + 'static> Object for Slider<T> {
                 }
             }
             "min_value" => {
-                if let Ok(v) = value.downcast::<T>() {
+                if let Ok(v) = value.downcast::<f32>() {
                     self.min_value = *v;
                 }
             }
             "max_value" => {
-                if let Ok(v) = value.downcast::<T>() {
+                if let Ok(v) = value.downcast::<f32>() {
                     self.max_value = *v;
                 }
             }
             "value" => {
-                if let Ok(v) = value.downcast::<T>() {
+                if let Ok(v) = value.downcast::<f32>() {
                     self.value = *v;
                 }
             }
@@ -1389,7 +1422,7 @@ impl<T: AsF32 + From<f32> + 'static> Object for Slider<T> {
                 }
             }
             "step" => {
-                if let Ok(v) = value.downcast::<T>() {
+                if let Ok(v) = value.downcast::<f32>() {
                     self.step = Some(*v);
                 }
             }
@@ -1483,13 +1516,45 @@ impl From<&Camera> for raylib_sys::Camera2D {
     }
 }
 
+pub fn register_object_types() {
+    register_object_type::<Rectangle>();
+    register_object_type::<RoundedRectangle>();
+    register_object_type::<Circle>();
+    register_object_type::<Grid>();
+    register_object_type::<ComboBox>();
+    register_object_type::<TextLabel>();
+    register_object_type::<Image>();
+    register_object_type::<TextBox>();
+    register_object_type::<Slider>();
+}
 #[pyclass(unsendable)]
-pub struct PyObjectWrapper {
+#[derive(Clone)]
+pub struct PyObject {
     inner: Rc<RefCell<Box<dyn Object>>>,
 }
 
 #[pymethods]
-impl PyObjectWrapper {
+impl PyObject {
+    #[new]
+    pub fn new(obj: Py<PyAny>) -> PyResult<Self> {
+        Python::attach(|py| {
+            let obj_ref: Py<PyAny> = obj.clone_ref(py);
+            let bound = obj_ref.into_bound(py);
+
+            for extractor in OBJECT_REGISTRY.lock().unwrap().iter() {
+                if let Some(instance) = extractor(py, bound.as_unbound()) {
+                    return Ok(Self {
+                        inner: Rc::new(RefCell::new(instance)),
+                    });
+                }
+            }
+
+            Err(pyo3::exceptions::PyTypeError::new_err(
+                "Object type not registered as Rust Object",
+            ))
+        })
+    }
+
     pub fn get_property(&self, name: String, py: Python) -> PyResult<Py<PyAny>> {
         let prop = self.inner.borrow().get_property(name);
 
@@ -1510,8 +1575,8 @@ impl PyObjectWrapper {
     }
 }
 
-impl PyObjectWrapper {
-    pub fn new(inner: Rc<RefCell<Box<dyn Object>>>) -> Self {
+impl PyObject {
+    pub fn from(inner: Rc<RefCell<Box<dyn Object>>>) -> Self {
         Self { inner }
     }
 
@@ -1571,3 +1636,33 @@ impl PyObjectWrapper {
         )))
     }
 }
+
+#[pyclass(unsendable)]
+#[derive(Clone)]
+pub struct PyFont(pub Rc<RefCell<raylib::prelude::Font>>);
+
+#[pyclass(unsendable)]
+#[derive(Clone)]
+pub struct PyTranslations(pub Rc<RefCell<Translations>>);
+
+#[pyclass(unsendable)]
+#[derive(Clone)]
+pub struct PyColorSchemes(pub Rc<RefCell<ColorSchemes>>);
+
+fn color_to_hex(color: Color) -> u32 {
+    ((color.r as u32) << 24) | ((color.g as u32) << 16) | ((color.b as u32) << 8) | (color.a as u32)
+}
+
+#[pymethods]
+impl PyColorSchemes {
+    pub fn get_color(&self, scheme: &str, name: String) -> Option<u32> {
+        self.0
+            .borrow()
+            .get_color(scheme, name.as_str())
+            .map(|x| color_to_hex(x))
+    }
+}
+
+#[pyclass(unsendable)]
+#[derive(Clone)]
+pub struct PySettings(pub Rc<RefCell<Settings>>);

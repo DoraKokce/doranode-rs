@@ -12,11 +12,12 @@ use pyo3::{
     types::{PyDict, PyTuple},
 };
 use raylib::prelude::*;
-use raylib_sys::{CheckCollisionPointRec, rlPopMatrix, rlPushMatrix, rlTranslatef};
+use raylib_sys::{rlPopMatrix, rlPushMatrix, rlTranslatef};
 
 use crate::{
     colorscheme::ColorSchemes,
-    objects::{self, Camera, Object, PyObjectWrapper},
+    draw::PyDrawHandle,
+    objects::{self, Camera, Object, PyColorSchemes, PyObject},
     settings::Settings,
     structs::Vector2,
     translations::Translations,
@@ -185,9 +186,9 @@ pub struct Node {
     pub roundness: f32,
     pub font: Rc<RefCell<Font>>,
     pub title_height: f32,
-    pub update_fn: Option<Py<PyAny>>,
-    pub draw_fn: Option<Box<dyn Fn(&Node, &mut RaylibDrawHandle, Camera) + 'static>>,
-    pub type_name: &'static str,
+    pub update_fn: Option<Rc<Py<PyAny>>>,
+    pub draw_fn: Option<Rc<Py<PyAny>>>,
+    pub type_name: String,
     pub id: String,
     pub translations: Rc<RefCell<Translations>>,
     pub color_schemes: Rc<RefCell<ColorSchemes>>,
@@ -351,7 +352,10 @@ impl Object for Node {
         let title = self
             .translations
             .borrow()
-            .get_node_translation(self.settings.borrow().language.as_str(), self.type_name)
+            .get_node_translation(
+                self.settings.borrow().language.as_str(),
+                self.type_name.as_str(),
+            )
             .title;
         let text_size = self.title_height - 2.0;
         let text_spacing = self.font.borrow().measure_text(&title, text_size, 1.0);
@@ -377,15 +381,32 @@ impl Object for Node {
             }
 
             let screen_pos = draw_handle.get_world_to_screen2D(self.position.clone(), camera);
-            draw_handle.draw_scissor_mode(
-                screen_pos.x as i32,
-                screen_pos.y as i32,
-                (self.size.x * camera.zoom) as i32,
-                (self.size.y * camera.zoom) as i32,
-                |mut scissor: RaylibScissorMode<'_, RaylibDrawHandle<'_>>| {
-                    draw_fn(self, &mut scissor, camera.clone());
-                },
-            );
+
+            Python::attach(|py| {
+                draw_handle.draw_scissor_mode(
+                    screen_pos.x as i32,
+                    screen_pos.y as i32,
+                    (self.size.x * camera.zoom) as i32,
+                    (self.size.y * camera.zoom) as i32,
+                    |mut scissor| {
+                        let ptr = unsafe {
+                            std::mem::transmute::<
+                                &mut RaylibDrawHandle,
+                                *mut RaylibDrawHandle<'static>,
+                            >(&mut scissor)
+                        };
+
+                        let pydraw = PyDrawHandle {
+                            draw_handle: ptr,
+                            font: self.font.clone(),
+                        };
+
+                        if let Err(e) = draw_fn.call(py, (PyNode::from_node(self), pydraw), None) {
+                            e.print(py);
+                        }
+                    },
+                );
+            });
 
             unsafe {
                 rlPopMatrix();
@@ -523,8 +544,8 @@ impl Node {
         size: Vector2,
         font: Rc<RefCell<Font>>,
         update_fn: Option<Py<PyAny>>,
-        draw_fn: Option<Box<dyn Fn(&Node, &mut RaylibDrawHandle, Camera) + 'static>>,
-        type_name: &'static str,
+        draw_fn: Option<Py<PyAny>>,
+        type_name: String,
         translations: Rc<RefCell<Translations>>,
         color_schemes: Rc<RefCell<ColorSchemes>>,
         settings: Rc<RefCell<Settings>>,
@@ -540,8 +561,8 @@ impl Node {
             font,
             title_height: 24.0,
             mouse_offset: None,
-            update_fn,
-            draw_fn,
+            update_fn: update_fn.map(|x| Rc::new(x)),
+            draw_fn: draw_fn.map(|x| Rc::new(x)),
             type_name,
             id,
             ports: vec![],
@@ -620,7 +641,7 @@ impl Node {
         let dict = PyDict::new(py);
 
         for (label, (_offset, component)) in &self.components {
-            dict.set_item(label, PyObjectWrapper::new(component.clone()))
+            dict.set_item(label, PyObject::from(component.clone()))
                 .unwrap();
         }
 
@@ -697,6 +718,108 @@ impl Into<objects::RoundedRectangle> for Node {
             roundness: self.roundness,
             size: self.size,
             z: self.z,
+        }
+    }
+}
+
+#[pyclass(unsendable)]
+#[derive(Clone)]
+pub struct PyNode {
+    pub size: Vector2,
+    pub components: HashMap<String, (Vector2, PyObject)>,
+    pub ports: Vec<(String, bool, i32)>,
+    pub update_fn: Option<Rc<Py<PyAny>>>,
+    pub draw_fn: Option<Rc<Py<PyAny>>>,
+    pub type_name: String,
+    pub scalable: bool,
+    pub colorscheme: Option<PyColorSchemes>,
+    pub scheme: Option<String>,
+}
+
+#[pymethods]
+impl PyNode {
+    #[new]
+    pub fn new(
+        size: [f32; 2],
+        draw_fn: Option<Py<PyAny>>,
+        update_fn: Option<Py<PyAny>>,
+        type_name: String,
+        scalable: bool,
+    ) -> Self {
+        Self {
+            size: size.into(),
+            draw_fn: draw_fn.map(|x| Rc::new(x)),
+            update_fn: update_fn.map(|x| Rc::new(x)),
+            type_name: type_name.clone(),
+            scalable,
+            components: HashMap::new(),
+            ports: vec![],
+            colorscheme: None,
+            scheme: None,
+        }
+    }
+
+    pub fn add_port(&mut self, label: String, is_output: bool, y_offset: i32) {
+        self.ports.push((label.to_string(), is_output, y_offset));
+    }
+
+    pub fn add_component(&mut self, name: String, position: [f32; 2], component: PyObject) {
+        self.components.insert(name, (position.into(), component));
+    }
+}
+
+impl PyNode {
+    pub fn to_node(
+        &self,
+        position: Vector2,
+        font: Rc<RefCell<Font>>,
+        translations: Rc<RefCell<Translations>>,
+        color_schemes: Rc<RefCell<ColorSchemes>>,
+        settings: Rc<RefCell<Settings>>,
+        id: String,
+    ) -> Rc<RefCell<Node>> {
+        Python::attach(|py| {
+            Node::new(
+                position,
+                self.size.clone(),
+                font,
+                self.update_fn.as_ref().map(|x| x.clone_ref(py)),
+                self.draw_fn.as_ref().map(|x| x.clone_ref(py)),
+                self.type_name.clone(),
+                translations,
+                color_schemes,
+                settings,
+                id,
+                self.scalable,
+            )
+        })
+    }
+
+    pub fn from_node(node: &Node) -> Self {
+        Self {
+            size: node.size.clone(),
+            ports: node
+                .ports
+                .clone()
+                .iter()
+                .map(|(x, y, z, _)| (x.clone(), y.clone(), z.clone()))
+                .collect(),
+            update_fn: node.update_fn.clone(),
+            draw_fn: node.draw_fn.clone(),
+            type_name: node.type_name.clone(),
+            scalable: node.scalable,
+            components: node
+                .components
+                .iter()
+                .map(|(key, (pos, component))| {
+                    (
+                        key.clone(),
+                        (pos.clone(), PyObject::from(component.clone())),
+                    )
+                })
+                .collect(),
+            colorscheme: Some(PyColorSchemes(node.color_schemes.clone())),
+            scheme: Some(node.settings.borrow().scheme.clone()),
         }
     }
 }
